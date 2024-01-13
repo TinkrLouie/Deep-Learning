@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import torchvision
 from IPython import display as disp
 from torchvision.utils import save_image
+#from torchmetrics.image.fid import compute_fid
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -58,39 +59,60 @@ plt.show()
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, params):
+    def __init__(self, params, f=16):
         super(Autoencoder, self).__init__()
         # self.encoder = nn.Linear(32 * 32 * params['n_channels'], params['n_latent'])
         # self.decoder = nn.Linear(params['n_latent'], 32 * 32 * params['n_channels'])
 
-        # Encoder
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 32, 4, 2, 1, bias=False),
+            nn.Conv2d(params['n_channels'], f, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(32, 64, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(64),
+            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 16x16
+            nn.Conv2d(f, f*2, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(128),
+            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 8x8
+            nn.Conv2d(f*2, f*4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*4),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, 4, 2, 0, bias=False),
+            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 4x4
+            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 2x2
+            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 1x1
+            nn.Conv2d(f*4, params['n_latent'], kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(params['n_latent']),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        self.decoder = nn.Sequential(
+            nn.Upsample(scale_factor=2),  # output = 2x2
+            nn.Conv2d(params['n_latent'], f*4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),  # output = 4x4
+            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f*4),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),  # output = 8x8
+            nn.Conv2d(f * 4, f * 2, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),  # output = 16x16
+            nn.Conv2d(f * 2, f, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Upsample(scale_factor=2),  # output = 32x32
+            nn.Conv2d(f, params['n_channels'], 3, 1, 1),
             nn.Sigmoid()
         )
 
-        # Decoder
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(256, 128, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(128),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(64),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(32),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(32, 3, 4, 2, 1, bias=False),
-            nn.Sigmoid()  # nn.Tanh()
-        )
+
 
     def forward(self, x):
         z = self.encoder(x.view(x.size(0), -1))
@@ -107,7 +129,7 @@ class Autoencoder(nn.Module):
 params = {
     'batch_size': train_loader.batch_size,
     'n_channels': 3,
-    'n_latent': 7  # alters number of parameters
+    'n_latent': 512  # alters number of parameters
 }
 
 N = Autoencoder(params).to(device)
@@ -116,8 +138,11 @@ print(f'> Number of model parameters {len(torch.nn.utils.parameters_to_vector(N.
 if len(torch.nn.utils.parameters_to_vector(N.parameters())) > 1000000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
+# Loss function
+loss_fn = nn.MSELoss(reduction='sum')
+
 # initialise the optimiser
-optimiser = torch.optim.Adam(N.parameters(), lr=0.001)
+optimiser = torch.optim.SGD(N.parameters(), lr=0.001, momentum=0.9)
 steps = 0
 
 # keep within our optimisation step budget
@@ -133,7 +158,7 @@ while steps < 50000:
 
         # train model
         p = N(x)
-        loss = F.mse_loss(p, x)
+        loss = loss_fn(p, x)
         optimiser.zero_grad()
         loss.backward()
         optimiser.step()
