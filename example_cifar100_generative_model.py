@@ -1,4 +1,3 @@
-import math
 import os
 import shutil
 import matplotlib.pyplot as plt
@@ -11,8 +10,6 @@ from IPython import display as disp
 from torchvision.utils import save_image
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
-"""**Import dataset**"""
 
 
 # helper function to make getting another batch of data easier
@@ -52,8 +49,6 @@ test_iterator = iter(cycle(test_loader))
 print(f'> Size of training dataset {len(train_loader.dataset)}')
 print(f'> Size of test dataset {len(test_loader.dataset)}')
 
-"""**View some of the test dataset**"""
-
 # let's view some of the training data
 plt.rcParams['figure.dpi'] = 100
 x, t = next(train_iterator)
@@ -61,14 +56,41 @@ x, t = x.to(device), t.to(device)
 plt.imshow(torchvision.utils.make_grid(x).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
 plt.show()
 
-"""**This is an autoencoder pretending to be a generative model**"""
-
 
 class Autoencoder(nn.Module):
     def __init__(self, params):
         super(Autoencoder, self).__init__()
-        self.encoder = nn.Linear(32 * 32 * params['n_channels'], params['n_latent'])
-        self.decoder = nn.Linear(params['n_latent'], 32 * 32 * params['n_channels'])
+        # self.encoder = nn.Linear(32 * 32 * params['n_channels'], params['n_latent'])
+        # self.decoder = nn.Linear(params['n_latent'], 32 * 32 * params['n_channels'])
+
+        # Encoder
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 32, 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(32, 64, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(128, 256, 4, 2, 0, bias=False),
+            nn.Sigmoid()
+        )
+
+        # Decoder
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(256, 128, 4, 1, 0, bias=False),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(128, 64, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(64, 32, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(32),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.ConvTranspose2d(32, 3, 4, 2, 1, bias=False),
+            nn.Sigmoid()  # nn.Tanh()
+        )
 
     def forward(self, x):
         z = self.encoder(x.view(x.size(0), -1))
@@ -97,8 +119,6 @@ if len(torch.nn.utils.parameters_to_vector(N.parameters())) > 1000000:
 # initialise the optimiser
 optimiser = torch.optim.Adam(N.parameters(), lr=0.001)
 steps = 0
-
-"""**Main training loop**"""
 
 # keep within our optimisation step budget
 while steps < 50000:
@@ -132,8 +152,6 @@ while steps < 50000:
     disp.clear_output(wait=True)
     N.train()
 
-"""**Latent interpolations**"""
-
 # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
 col_size = int(np.sqrt(params['batch_size']))
 
@@ -149,11 +167,6 @@ plt.rcParams['figure.dpi'] = 100
 plt.grid(False)
 plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
 plt.show()
-
-"""**FID scores**
-
-Evaluate the FID from 10k of your model samples (do not sample more than this) and compare it against the 10k test images. Calculating FID is somewhat involved, so we use a library for it. It can take a few minutes to evaluate. Lower FID scores are better.
-"""
 
 # Commented out IPython magic to ensure Python compatibility.
 # %%capture
