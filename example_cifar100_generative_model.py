@@ -4,11 +4,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torchvision
 from IPython import display as disp
+from cleanfid import fid
 from torchvision.utils import save_image
-#from torchmetrics.image.fid import compute_fid
+# import torch.nn.functional as F
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -59,7 +59,7 @@ plt.show()
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, params, f=16):
+    def __init__(self, params, f=32):
         super(Autoencoder, self).__init__()
         # self.encoder = nn.Linear(32 * 32 * params['n_channels'], params['n_latent'])
         # self.decoder = nn.Linear(params['n_latent'], 32 * 32 * params['n_channels'])
@@ -69,35 +69,35 @@ class Autoencoder(nn.Module):
             nn.BatchNorm2d(f),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(kernel_size=(2, 2)),  # output = 16x16
-            nn.Conv2d(f, f*2, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*2),
+            nn.Conv2d(f, f * 2, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(kernel_size=(2, 2)),  # output = 8x8
-            nn.Conv2d(f*2, f*4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*4),
+            nn.Conv2d(f * 2, f * 4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 4),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(kernel_size=(2, 2)),  # output = 4x4
-            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*4),
+            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 4),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(kernel_size=(2, 2)),  # output = 2x2
-            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*4),
+            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 4),
             nn.LeakyReLU(0.2, inplace=True),
             nn.MaxPool2d(kernel_size=(2, 2)),  # output = 1x1
-            nn.Conv2d(f*4, params['n_latent'], kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(f * 4, params['n_latent'], kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(params['n_latent']),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         self.decoder = nn.Sequential(
             nn.Upsample(scale_factor=2),  # output = 2x2
-            nn.Conv2d(params['n_latent'], f*4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*4),
+            nn.Conv2d(params['n_latent'], f * 4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 4),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Upsample(scale_factor=2),  # output = 4x4
-            nn.Conv2d(f*4, f*4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f*4),
+            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(f * 4),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Upsample(scale_factor=2),  # output = 8x8
             nn.Conv2d(f * 4, f * 2, kernel_size=3, stride=1, padding=1),
@@ -111,8 +111,6 @@ class Autoencoder(nn.Module):
             nn.Conv2d(f, params['n_channels'], 3, 1, 1),
             nn.Sigmoid()
         )
-
-
 
     def forward(self, x):
         z = self.encoder(x.view(x.size(0), -1))
@@ -193,12 +191,6 @@ plt.grid(False)
 plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
 plt.show()
 
-# Commented out IPython magic to ensure Python compatibility.
-# %%capture
-# !pip install clean-fid
-# import os
-# from cleanfid import fid
-# from torchvision.utils import save_image
 
 # define directories
 real_images_dir = 'real_images'
