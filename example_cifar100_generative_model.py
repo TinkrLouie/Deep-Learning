@@ -1,14 +1,16 @@
-import os
 import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
+from torch.nn import *
 import torchvision
-from IPython import display as disp
 from cleanfid import fid
+import torchvision.utils as vutils
 from torchvision.utils import save_image
 # import torch.nn.functional as F
+import os
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
@@ -44,136 +46,184 @@ test_loader = torch.utils.data.DataLoader(
     ])),
     batch_size=64, drop_last=True)
 
+# hyperparameters
+params = {
+    'batch_size': train_loader.batch_size,
+    'n_channels': 3,
+    'n_latent': 32,
+    'ngpu': 1,
+    'lr': 0.0001,
+    'gen_lr': 0.0001,
+    'dis_lr': 0.0004,
+    'n_epoch': 50000,
+    'nz': 100,  # Size of z latent vector
+    'real_label': 0.9,  # Label smoothing
+    'fake_label': 0
+}
+
 train_iterator = iter(cycle(train_loader))
 test_iterator = iter(cycle(test_loader))
 
 print(f'> Size of training dataset {len(train_loader.dataset)}')
 print(f'> Size of test dataset {len(test_loader.dataset)}')
 
-# let's view some of the training data
-plt.rcParams['figure.dpi'] = 100
-x, t = next(train_iterator)
-x, t = x.to(device), t.to(device)
-plt.imshow(torchvision.utils.make_grid(x).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
-plt.show()
 
-
-class Autoencoder(nn.Module):
-    def __init__(self, params, f=32):
-        super(Autoencoder, self).__init__()
-        # self.encoder = nn.Linear(32 * 32 * params['n_channels'], params['n_latent'])
-        # self.decoder = nn.Linear(params['n_latent'], 32 * 32 * params['n_channels'])
-
-        self.encoder = nn.Sequential(
-            nn.Conv2d(params['n_channels'], f, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 16x16
-            nn.Conv2d(f, f * 2, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 8x8
-            nn.Conv2d(f * 2, f * 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 4x4
-            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 2x2
-            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 2)),  # output = 1x1
-            nn.Conv2d(f * 4, params['n_latent'], kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(params['n_latent']),
-            nn.LeakyReLU(0.2, inplace=True)
-        )
-
-        self.decoder = nn.Sequential(
-            nn.Upsample(scale_factor=2),  # output = 2x2
-            nn.Conv2d(params['n_latent'], f * 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),  # output = 4x4
-            nn.Conv2d(f * 4, f * 4, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 4),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),  # output = 8x8
-            nn.Conv2d(f * 4, f * 2, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),  # output = 16x16
-            nn.Conv2d(f * 2, f, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(f),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Upsample(scale_factor=2),  # output = 32x32
-            nn.Conv2d(f, params['n_channels'], 3, 1, 1),
-            nn.Sigmoid()
+class Generator(Module):
+    def __init__(self):
+        super(Generator, self).__init__()
+        self.main = Sequential(
+            # input is Z, going into a convolution
+            ConvTranspose2d(params['nz'], params['n_latent'] * 8, 3, 1, 0, bias=False),
+            BatchNorm2d(params['n_latent'] * 8),
+            LeakyReLU(0.2, inplace=True),
+            ConvTranspose2d(params['n_latent'] * 8, params['n_latent'] * 4, 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent'] * 4),
+            LeakyReLU(0.2, inplace=True),
+            ConvTranspose2d(params['n_latent'] * 4, params['n_latent'] * 2, 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent'] * 2),
+            LeakyReLU(0.2, inplace=True),
+            ConvTranspose2d(params['n_latent'] * 2, params['n_latent'], 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent']),
+            LeakyReLU(0.2, inplace=True),
+            ConvTranspose2d(params['n_latent'], params['n_channels'], 3, 1, 1, bias=False),
+            Tanh()
         )
 
     def forward(self, x):
-        z = self.encoder(x.view(x.size(0), -1))
-        z += 0.1 * torch.randn_like(z)  # crude attempt to make latent space normally distributed so we can sample it
-        x = torch.sigmoid(self.decoder(z))
-        return x.view(x.size(0), params['n_channels'], 32, 32)
+        return self.main(x)
 
     def sample(self, z):  # sample from some prior distribution (it should not depend on x)
-        x = torch.sigmoid(self.decoder(z))
-        return x.view(x.size(0), params['n_channels'], 32, 32)
+        with torch.no_grad():
+            return self.main(z)
 
 
-# hyperparameters
-params = {
-    'batch_size': train_loader.batch_size,
-    'n_channels': 3,
-    'n_latent': 512  # alters number of parameters
-}
+# custom weights initialization called on netG and netD
+def weights_init(model):
+    classname = model.__class__.__name__
+    if classname.find('Conv') != -1:
+        init.normal_(model.weight.data, 0.0, 0.02)
+    elif classname.find('BatchNorm') != -1:
+        init.normal_(model.weight.data, 1.0, 0.02)
+        init.constant_(model.bias.data, 0)
 
-N = Autoencoder(params).to(device)
 
-print(f'> Number of model parameters {len(torch.nn.utils.parameters_to_vector(N.parameters()))}')
-if len(torch.nn.utils.parameters_to_vector(N.parameters())) > 1000000:
+class Discriminator(Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+        self.main = Sequential(
+            # input is (nc) x 64 x 64
+            Conv2d(params['n_channels'], params['n_latent'], 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent']),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(params['n_latent'], params['n_latent'] * 2, 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent'] * 2),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(params['n_latent'] * 2, params['n_latent'] * 4, 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent'] * 4),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(params['n_latent'] * 4, params['n_latent'] * 8, 3, 1, 1, bias=False),
+            BatchNorm2d(params['n_latent'] * 8),
+            LeakyReLU(0.2, inplace=True),
+            Conv2d(params['n_latent'] * 8, 1, 3, 1, 0, bias=False),
+            AdaptiveAvgPool2d((1, 1)),
+            Sigmoid()
+        )
+
+    def forward(self, x):
+        return self.main(x)
+
+    def sample(self, z):
+        with torch.no_grad():
+            return self.main(z)
+
+
+Gen = Generator().to(device)
+Gen.apply(weights_init)
+print(Gen)
+Dis = Discriminator().to(device)
+Dis.apply(weights_init)
+print(Dis)
+
+total_params = len(torch.nn.utils.parameters_to_vector(Gen.parameters())) + len(
+    torch.nn.utils.parameters_to_vector(Dis.parameters()))
+print(f'> Number of model parameters {total_params}')
+if total_params > 1000000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
 # Loss function
-loss_fn = nn.MSELoss(reduction='sum')
+loss_fn = BCELoss()  # can change to reduction='sum'
 
 # initialise the optimiser
-optimiser = torch.optim.SGD(N.parameters(), lr=0.001, momentum=0.9)
+Gen_optim = torch.optim.SGD(Gen.parameters(), lr=params['gen_lr'], momentum=0.9)
+Dis_optim = torch.optim.SGD(Dis.parameters(), lr=params['dis_lr'], momentum=0.9)
+
 steps = 0
 
+loss_gen = []
+loss_dis = []
+img_list = []
+
 # keep within our optimisation step budget
-while steps < 50000:
+while steps < params['n_epoch']:
 
     # arrays for metrics
-    loss_arr = np.zeros(0)
 
     # iterate over some of the train dateset
     for i in range(1000):
         x, t = next(train_iterator)
         x, t = x.to(device), t.to(device)
 
-        # train model
-        p = N(x)
-        loss = loss_fn(p, x)
-        optimiser.zero_grad()
-        loss.backward()
-        optimiser.step()
+        b_size = x.size(0)
+        # Apply label smoothing
+        label = torch.full((b_size,), params['real_label'], device=device)
+
+        # Add noise
+        x = 0.9 * x + 0.1 * torch.randn((x.size()), device=device)
+
+        # Train discriminator model
+        Dis_optim.zero_grad()
+        d = Dis(x).view(-1)  # Flatten
+        #print(d.size(), label.size(), t.size())
+
+        dis_loss_real = loss_fn(d, label)
+        dis_loss_real.backward()
+
+        # Generate with Generator model
+        noise = torch.randn(params['batch_size'], params['nz'], 1, 1, device=device)
+        gen_img = Gen(noise)
+        # Fill label with 0, no smoothing. If smoothing, change param fake_label to 0.1
+        label.fill_(params['fake_label'])
+
+        gen_img = 0.9 * gen_img + 0.1 * torch.randn((gen_img.size()), device=device)
+        d2 = Dis(gen_img.detach()).view(-1)  # Flatten
+        dis_loss_fake = loss_fn(d2, label)
+        dis_loss_fake.backward()
+        dis_loss = dis_loss_fake + dis_loss_real
+        # Update discriminator model
+        Dis_optim.step()
+
+        # Train Generator model
+        Gen_optim.zero_grad()
+        label.fill_(params['real_label'])
+        d3 = Dis(gen_img).view(-1)  # Flatten
+        gen_loss = loss_fn(d3, label)
+
+        # Average confidence of Discriminator model
+        conf = d3.mean().item()
+
+        gen_loss.backward()
+        Gen_optim.step()
+
+        if steps % 500:
+            Gen.eval()
+            z = torch.randn(params['n_latent'], params['nz'], 1, 1).to(device)
+            samples = Gen.sample(z).cpu().detach()
+            img_list.append(vutils.make_grid(samples, padding=2, normalize=True))
         steps += 1
 
-        loss_arr = np.append(loss_arr, loss.item())
-
-    print('steps {:.2f}, loss: {:.3f}'.format(steps, loss_arr.mean()))
-
-    # sample model and visualise results (ensure your sampling code does not use x)
-    N.eval()
-    z = torch.randn(params['batch_size'], params['n_latent']).to(device)
-    samples = N.sample(z).cpu().detach()
-    plt.imshow(torchvision.utils.make_grid(samples).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
-    plt.show()
-    disp.clear_output(wait=True)
-    N.train()
+    loss_dis.append(dis_loss.item())
+    loss_gen.append(gen_loss.item())
+    print('steps {:.2f}, dis loss: {:.3f}, gen loss: {:.3f}'.format(steps, dis_loss.mean(), gen_loss.mean()))
 
 # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
 col_size = int(np.sqrt(params['batch_size']))
@@ -184,13 +234,12 @@ z1 = z[params['batch_size'] - col_size:].repeat(col_size, 1)  # z for bottom row
 t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
 
 lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-lerp_g = N.sample(lerp_z)  # sample the model at the resulting interpolated latents
+lerp_g = Gen.sample(lerp_z)  # sample the model at the resulting interpolated latents
 
 plt.rcParams['figure.dpi'] = 100
 plt.grid(False)
 plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
 plt.show()
-
 
 # define directories
 real_images_dir = 'real_images'
@@ -214,7 +263,7 @@ while num_generated < num_samples:
 
     # sample from your model, you can modify this
     z = torch.randn(params['batch_size'], params['n_latent']).to(device)
-    samples_batch = N.sample(z).cpu().detach()
+    samples_batch = Gen.sample(z).cpu().detach()
 
     for image in samples_batch:
         if num_generated >= num_samples:
