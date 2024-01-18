@@ -9,7 +9,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from torchvision.transforms import Compose, ToTensor, Lambda
-from torchvision.datasets.mnist import MNIST, FashionMNIST
+from torchvision.datasets import CIFAR100
 
 # Setting reproducibility
 SEED = 0
@@ -62,7 +62,7 @@ transform = Compose([
     ToTensor(),
     Lambda(lambda x: (x - 0.5) * 2)]
 )
-ds_fn = FashionMNIST if fashion else MNIST
+ds_fn = CIFAR100
 dataset = ds_fn("./datasets", download=True, train=True, transform=transform)
 loader = DataLoader(dataset, batch_size, shuffle=True)
 
