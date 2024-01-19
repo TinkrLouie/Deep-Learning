@@ -116,7 +116,6 @@ class MyDDPM(nn.Module):
         # Make input image more noisy (we can directly skip to the desired step)
         n, c, h, w = x0.shape
         a_bar = self.alpha_bars[t]
-
         if eta is None:
             eta = torch.randn(n, c, h, w).to(self.device)
 
@@ -194,7 +193,7 @@ class MyUNet(nn.Module):
         self.down3 = nn.Sequential(
             nn.Conv2d(40, 40, 2, 1),
             nn.SiLU(),
-            nn.Conv2d(40, 40, 4, 2, 1)
+            nn.Conv2d(40, 40, 5, 2, 2)
         )
 
         # Bottleneck
@@ -207,7 +206,7 @@ class MyUNet(nn.Module):
 
         # Second half
         self.up1 = nn.Sequential(
-            nn.ConvTranspose2d(40, 40, 4, 2, 1),
+            nn.ConvTranspose2d(40, 40, 3, 2, 1),
             nn.SiLU(),
             nn.ConvTranspose2d(40, 40, 2, 1)
         )
@@ -235,7 +234,7 @@ class MyUNet(nn.Module):
             MyBlock((10, 32, 32), 10, 10, normalize=False)
         )
 
-        self.conv_out = nn.Conv2d(10, 100, 3, 1, 1)
+        self.conv_out = nn.Conv2d(10, 3, 3, 1, 1)
 
     def forward(self, x, t):
         t = self.time_embed(t)
@@ -244,7 +243,7 @@ class MyUNet(nn.Module):
         out2 = self.b2(self.down1(out1) + self.te2(t).reshape(n, -1, 1, 1))
         out3 = self.b3(self.down2(out2) + self.te3(t).reshape(n, -1, 1, 1))
 
-        out_mid = self.b_mid(self.down3(out3) + self.te_mid(t).reshape(n, -1, 1, 1))  # (N, 40, 3, 3)
+        out_mid = self.b_mid(self.down3(out3) + self.te_mid(t).reshape(n, -1, 1, 1))  # (N, 40, 4, 4)
 
         out4 = torch.cat((out3, self.up1(out_mid)), dim=1)
         out4 = self.b4(out4 + self.te4(t).reshape(n, -1, 1, 1))
@@ -318,7 +317,7 @@ if total_params > 1000000:
 # Training
 store_path = "ddpm_CIFAR100.pt"
 if not params['no_train']:
-    training_loop(ddpm, loader, params['n_epochs'], optim=Adam(ddpm.parameters(), params['lr']), device=device, store_path=store_path)
+    training_loop(ddpm, loader, params['n_epoch'], optim=Adam(ddpm.parameters(), params['lr']), device=device, store_path=store_path)
 
 
 # Loading the trained model
