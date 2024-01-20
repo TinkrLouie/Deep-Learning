@@ -307,7 +307,7 @@ col_size = int(np.sqrt(params['batch_size']))
 # z[0:col_size] => Size([8, 3, 32, 32])
 z0 = z[0:col_size].repeat(1, 1, col_size, 1)  # z for top row
 z1 = z[params['batch_size'] - col_size:].repeat(1, 1, col_size, 1)  # z for bottom row
-t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
+t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size, 1, 1).to(device)
 lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
 lerp_g = best_model.sample(lerp_z, device=device)  # sample the model at the resulting interpolated latents
 plt.rcParams['figure.dpi'] = 100
