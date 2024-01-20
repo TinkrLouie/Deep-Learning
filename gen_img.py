@@ -304,9 +304,9 @@ print("Model loaded")
 # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
 z = sample(best_model, params['batch_size'], device=device)
 col_size = int(np.sqrt(params['batch_size']))
-print(z[0:col_size].shape)
-z0 = z[0:col_size].repeat(col_size, 1)  # z for top row
-z1 = z[params['batch_size'] - col_size:].repeat(col_size, 1)  # z for bottom row
+# z[0:col_size] => Size([8, 3, 32, 32])
+z0 = z[0:col_size].repeat(1, 1, col_size, 1)  # z for top row
+z1 = z[params['batch_size'] - col_size:].repeat(1, 1, col_size, 1)  # z for bottom row
 t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
 lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
 lerp_g = best_model.sample(lerp_z, device=device)  # sample the model at the resulting interpolated latents
