@@ -322,8 +322,9 @@ setup_directory(real_images_dir)
 
 # save 10k images from the CIFAR-100 test dataset
 
-for i, image in enumerate(test_loader):
-    save_image(image, os.path.join(real_images_dir, f"real_img_{i}.png"))
+for batch in test_loader:
+    for i, image in enumerate(batch[0]):
+        save_image(image, os.path.join(real_images_dir, f"real_img_{i}.png"))
 
 
 # compute FID
