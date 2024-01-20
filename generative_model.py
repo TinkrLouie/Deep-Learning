@@ -28,7 +28,7 @@ params = {
     'lr': 0.001,
     'gen_lr': 0.0001,
     'dis_lr': 0.0004,
-    'n_epoch': 50000,
+    'n_epoch': 50,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
