@@ -52,7 +52,7 @@ ds_fn = CIFAR100
 #loader = DataLoader(train_dataset, params['batch_size'], shuffle=True)
 
 test_dataset = ds_fn("./datasets", download=True, train=False, transform=transform)
-test_loader = DataLoader(test_dataset, params['batch_size'], shuffle=True)
+test_loader = DataLoader(test_dataset, 10000, shuffle=True)
 
 #print(f'Size of training dataset: {len(loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
@@ -321,14 +321,10 @@ setup_directory(real_images_dir)
 #    save_image(image, os.path.join(generated_images_dir, f"gen_img_{i}.png"))
 
 # save 10k images from the CIFAR-100 test dataset
-num_saved_real = 0
-while num_saved_real < num_samples:
-    for _, batch in enumerate(test_loader):
-        for image in batch:
-            if num_saved_real >= num_samples:
-                break
-            save_image(image, os.path.join(real_images_dir, f"real_img_{num_saved_real}.png"))
-            num_saved_real += 1
+
+for i, image in enumerate(test_loader):
+    save_image(image, os.path.join(real_images_dir, f"real_img_{i}.png"))
+
 
 # compute FID
 score = fid.compute_fid(real_images_dir, generated_images_dir, mode="clean")
