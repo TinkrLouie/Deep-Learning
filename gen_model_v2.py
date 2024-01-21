@@ -30,9 +30,6 @@ min_beta = 1e-4
 max_beta = 0.02
 dim = 32
 num_classes = 100
-no_train = False
-
-
 
 
 class SelfAttention(nn.Module):
@@ -284,8 +281,8 @@ if __name__ == '__main__':
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
     transform = Compose([
         ToTensor(),
-        Lambda(lambda x: (x - 0.5) * 2)]
-    )
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
 
     ds_fn = CIFAR100
     train_dataset = ds_fn("./datasets", download=True, train=True, transform=transform)
