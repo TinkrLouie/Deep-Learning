@@ -281,6 +281,8 @@ if __name__ == '__main__':
 
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
     transform = Compose([
+        torchvision.transforms.Resize(40),  # args.image_size + 1/4 *args.image_size
+        torchvision.transforms.RandomResizedCrop(dim, scale=(0.8, 1.0)),
         ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
