@@ -126,7 +126,7 @@ class Up(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, c_in=3, c_out=3, time_dim=256, device="cuda"):
+    def __init__(self, c_in=3, c_out=3, time_dim=128, device="cuda"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
@@ -281,17 +281,17 @@ if __name__ == '__main__':
 
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
     transform = Compose([
-        torchvision.transforms.Resize(40),  # args.image_size + 1/4 *args.image_size
-        torchvision.transforms.RandomResizedCrop(dim, scale=(0.8, 1.0)),
+        #torchvision.transforms.Resize(40),  # args.image_size + 1/4 *args.image_size
+        #torchvision.transforms.RandomResizedCrop(dim, scale=(0.8, 1.0)),
         ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    ds_fn = CIFAR100
-    train_dataset = ds_fn("./datasets", download=True, train=True, transform=transform)
+    ds = CIFAR100
+    train_dataset = ds("./datasets", download=True, train=True, transform=transform)
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
 
-    test_dataset = ds_fn("./datasets", download=True, train=False, transform=transform)
+    test_dataset = ds("./datasets", download=True, train=False, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
 
     print(f'Size of training dataset: {len(train_loader.dataset)}')
