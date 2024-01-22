@@ -143,9 +143,9 @@ class UNet(nn.Module):
         self.bot1 = DoubleConv(64, 128)
         self.bot3 = DoubleConv(128, 64)
 
-        self.up1 = Up(128, 64)
-        self.sa4 = SelfAttention(64)
-        self.up2 = Up(128, 32)
+        self.up1 = Up(128, 32)
+        self.sa4 = SelfAttention(32)
+        self.up2 = Up(64, 32)
         self.sa5 = SelfAttention(32)
         self.up3 = Up(64, 32)
         self.sa6 = SelfAttention(32)
