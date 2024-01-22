@@ -271,7 +271,7 @@ if __name__ == '__main__':
     setup_directory(generated_images_dir)
 
     # generate and save 10k model samples
-    samples = diffusion.sample(best_model)
+    samples = diffusion.sample(best_model, 10)
     for i, image in enumerate(samples):
         save_image(image, os.path.join(generated_images_dir, f"gen_img_{i}.png"))
 
