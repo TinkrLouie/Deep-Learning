@@ -2,17 +2,19 @@ import shutil
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import nn
 import torchvision
 from cleanfid import fid
 from torchvision.utils import save_image
 import os
 from torchvision.datasets import CIFAR100
 import random
-from torch.optim import Adam
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor, Lambda
+from torchvision.transforms import Compose, ToTensor
 import torch.nn.functional as F
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Setting reproducibility
 SEED = 0
@@ -77,7 +79,7 @@ class DoubleConv(nn.Module):
 
 
 class Down(nn.Module):
-    def __init__(self, in_channels, out_channels, emb_dim=128):
+    def __init__(self, in_channels, out_channels, emb_dim=256):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
             nn.MaxPool2d(2),
@@ -95,7 +97,9 @@ class Down(nn.Module):
 
     def forward(self, x, t):
         x = self.maxpool_conv(x)
+        print(x.shape)
         emb = self.emb_layer(t)[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
+        print(emb.shape)
         return x + emb
 
 
@@ -126,7 +130,7 @@ class Up(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, c_in=3, c_out=3, time_dim=128, device="cuda"):
+    def __init__(self, c_in=3, c_out=3, time_dim=256, device="cuda"):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
@@ -138,9 +142,9 @@ class UNet(nn.Module):
         self.down3 = Down(256, 256)
         self.sa3 = SelfAttention(256, 8)
 
-        self.bot1 = DoubleConv(256, 512)
-        self.bot2 = DoubleConv(512, 512)
-        self.bot3 = DoubleConv(512, 256)
+        self.bot1 = DoubleConv(256, 256)
+        #self.bot2 = DoubleConv(512, 512)
+        self.bot3 = DoubleConv(256, 256)
 
         self.up1 = Up(512, 128)
         self.sa4 = SelfAttention(128, 16)
@@ -174,7 +178,7 @@ class UNet(nn.Module):
         x4 = self.sa3(x4)
 
         x4 = self.bot1(x4)
-        x4 = self.bot2(x4)
+        #x4 = self.bot2(x4)
         x4 = self.bot3(x4)
 
         x = self.up1(x4, x3, t)
@@ -242,7 +246,7 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     if total_params > 1000000:
         print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
-    optimizer = optim.AdamW(model.parameters(), lr=lr)
+    optimizer = AdamW(model.parameters(), lr=lr)
     mse = nn.MSELoss()
     diffusion = Diffusion(device=device)
     l = len(dataloader)
@@ -281,8 +285,6 @@ if __name__ == '__main__':
 
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
     transform = Compose([
-        #torchvision.transforms.Resize(40),  # args.image_size + 1/4 *args.image_size
-        #torchvision.transforms.RandomResizedCrop(dim, scale=(0.8, 1.0)),
         ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
