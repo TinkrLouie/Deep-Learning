@@ -133,21 +133,21 @@ class UNet(nn.Module):
         super().__init__()
         self.time_dim = time_dim
         self.inc = DoubleConv(c_in, 16)
-        self.down1 = Down(16, 32)
+        self.down1 = Down(16, 32)  # 16
         self.sa1 = SelfAttention(32)
-        self.down2 = Down(32, 32)
+        self.down2 = Down(32, 32)  # 8
         self.sa2 = SelfAttention(32)
-        self.down3 = Down(32, 64)
+        self.down3 = Down(32, 64)  # 4
         self.sa3 = SelfAttention(64)
 
         self.bot1 = DoubleConv(64, 64)
         self.bot3 = DoubleConv(64, 64)
 
-        self.up1 = Up(128, 32)
+        self.up1 = Up(128, 32)  # 8
         self.sa4 = SelfAttention(32)
-        self.up2 = Up(64, 32)
-        self.sa5 = SelfAttention(32)
-        self.up3 = Up(64, 32)
+        self.up2 = Up(64, 16)  # 16
+        self.sa5 = SelfAttention(16)
+        self.up3 = Up(32, 32)  # 32
         self.sa6 = SelfAttention(32)
         self.outc = nn.Conv2d(32, c_out, kernel_size=1)
 
