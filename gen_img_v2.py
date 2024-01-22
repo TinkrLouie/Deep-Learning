@@ -262,7 +262,7 @@ if __name__ == '__main__':
     state_dict = torch.load(store_path)
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
-        name = k[7:]
+        name = k[8:]
         new_state_dict[name] = v
     best_model.load_state_dict(new_state_dict)
     print("Model loaded")
