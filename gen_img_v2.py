@@ -260,11 +260,8 @@ if __name__ == '__main__':
     # Loading the trained model
     best_model = UNet().to(device)
     state_dict = torch.load(store_path)
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[8:]
-        new_state_dict[name] = v
-    best_model.load_state_dict(new_state_dict)
+
+    best_model.load_state_dict(state_dict, strict=False)
     print("Model loaded")
     diffusion = Diffusion(device=device)
 
