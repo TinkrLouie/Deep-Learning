@@ -104,7 +104,7 @@ class Down(nn.Module):
 
 
 class Up(nn.Module):
-    def __init__(self, in_channels, out_channels, emb_dim=128):
+    def __init__(self, in_channels, out_channels, emb_dim=256):
         super().__init__()
 
         self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
