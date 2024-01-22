@@ -258,8 +258,8 @@ if __name__ == '__main__':
 
     # Loading the trained model
     best_model = UNet().to(device)
-    best_model.load_state_dict(torch.load(store_path, map_location=device))
-    best_model.eval()
+    load = torch.load(store_path)
+    best_model.load_state_dict(load)
     print("Model loaded")
     diffusion = Diffusion(device=device)
 
