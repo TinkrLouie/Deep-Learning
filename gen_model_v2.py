@@ -145,9 +145,9 @@ class UNet(nn.Module):
 
         self.up1 = Up(128, 32)
         self.sa4 = SelfAttention(32)
-        self.up2 = Up(64, 32)
-        self.sa5 = SelfAttention(32)
-        self.up3 = Up(64, 16)
+        self.up2 = Up(64, 16)
+        self.sa5 = SelfAttention(16)
+        self.up3 = Up(32, 16)
         self.sa6 = SelfAttention(16)
         self.outc = nn.Conv2d(16, c_out, kernel_size=1)
 
