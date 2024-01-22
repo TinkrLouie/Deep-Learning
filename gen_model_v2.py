@@ -122,9 +122,13 @@ class Up(nn.Module):
 
     def forward(self, x, skip_x, t):
         x = self.up(x)
+        print('up x', x.shape)
         x = torch.cat([skip_x, x], dim=1)
+        print(x.shape)
         x = self.conv(x)
+        print(x.shape)
         emb = self.emb_layer(t)[:, :, None, None].repeat(1, 1, x.shape[-2], x.shape[-1])
+        print(emb.shape)
         return x + emb
 
 
@@ -177,7 +181,6 @@ class UNet(nn.Module):
         x4 = self.bot3(x4)
 
         x = self.up1(x4, x3, t)
-        print(x.shape)
         x = self.sa4(x)
         print(x.shape)
         print(x2.shape)
