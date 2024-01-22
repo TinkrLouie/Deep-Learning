@@ -167,12 +167,9 @@ class UNet(nn.Module):
     def forward(self, x, t):
         t = t.unsqueeze(-1).type(torch.float)
         t = self.pos_encoding(t, self.time_dim)
-        print(t.shape)
         x1 = self.inc(x)
-        print(x1.shape)
         x2 = self.down1(x1, t)
         #x2 = self.sa1(x2)
-        print('x2', x2.shape)
         x3 = self.down2(x2, t)
         #x3 = self.sa2(x3)
         x4 = self.down3(x3, t)
@@ -181,10 +178,8 @@ class UNet(nn.Module):
         x4 = self.bot1(x4)
         #x4 = self.bot2(x4)
         x4 = self.bot3(x4)
-        print('x4', x4.shape)
 
         x = self.up1(x4, x3, t)
-        print('x', x.shape)
         #x = self.sa4(x)
         x = self.up2(x, x2, t)
         #x = self.sa5(x)
@@ -258,7 +253,6 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
         epoch_loss = 0.0
         print(f"Starting epoch {epoch}:")
         for i, (images, _) in enumerate(dataloader):
-            print('images shape:', images.shape, images[0].shape)
             images = images.to(device)
             t = diffusion.sample_timesteps(images.shape[0]).to(device)
             x_t, noise = diffusion.noise_images(images, t)
@@ -278,7 +272,7 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
         if best_loss > epoch_loss:
             best_loss = epoch_loss
             torch.save(model.state_dict(), store_path)
-            log_string += " --> Best model ever (stored)"
+            log_string += " --> Current best model (stored)"
 
         print(log_string)
 
