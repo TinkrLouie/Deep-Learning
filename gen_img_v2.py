@@ -13,6 +13,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 import torch.nn.functional as F
+from collections import OrderedDict
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -258,9 +259,12 @@ if __name__ == '__main__':
 
     # Loading the trained model
     best_model = UNet().to(device)
-    load = torch.load(store_path)
-    print(load)
-    best_model.load_state_dict(load)
+    state_dict = torch.load(store_path)
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:]
+        new_state_dict[name] = v
+    best_model.load_state_dict(new_state_dict)
     print("Model loaded")
     diffusion = Diffusion(device=device)
 
