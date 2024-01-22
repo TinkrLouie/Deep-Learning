@@ -180,6 +180,8 @@ class UNet(nn.Module):
         print(x.shape)
         x = self.sa4(x)
         print(x.shape)
+        print(x2.shape)
+        print(t)
         x = self.up2(x, x2, t)
         x = self.sa5(x)
         x = self.up3(x, x1, t)
@@ -275,6 +277,8 @@ if __name__ == '__main__':
 
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
     transform = Compose([
+        torchvision.transforms.Resize(40),
+        torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         ToTensor(),
         torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
