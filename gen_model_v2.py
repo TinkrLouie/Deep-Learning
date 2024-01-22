@@ -36,10 +36,9 @@ num_classes = 100
 
 
 class SelfAttention(nn.Module):
-    def __init__(self, channels, size):
+    def __init__(self, channels):
         super(SelfAttention, self).__init__()
         self.channels = channels
-        self.size = size
         self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
         self.ln = nn.LayerNorm([channels])
         self.ff_self = nn.Sequential(
@@ -50,12 +49,13 @@ class SelfAttention(nn.Module):
         )
 
     def forward(self, x):
-        x = x.view(-1, self.channels, self.size * self.size).swapaxes(1, 2)
+        size = x.shape[-1]
+        x = x.view(-1, self.channels, size * size).swapaxes(1, 2)
         x_ln = self.ln(x)
         attention_value, _ = self.mha(x_ln, x_ln, x_ln)
         attention_value = attention_value + x
         attention_value = self.ff_self(attention_value) + attention_value
-        return attention_value.swapaxes(2, 1).view(-1, self.channels, self.size, self.size)
+        return attention_value.swapaxes(2, 1).view(-1, self.channels, size, size)
 
 
 class DoubleConv(nn.Module):
@@ -129,42 +129,40 @@ class Up(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, c_in=3, c_out=3, time_dim=256, device="cuda"):
+    def __init__(self, c_in=3, c_out=3, time_dim=256):
         super().__init__()
-        self.device = device
         self.time_dim = time_dim
-        self.inc = DoubleConv(c_in, 16)
-        self.down1 = Down(16, 32)
-        self.sa1 = SelfAttention(32, 16)
-        self.down2 = Down(32, 32)
-        self.sa2 = SelfAttention(32, 8)
-        self.down3 = Down(32, 64)
-        self.sa3 = SelfAttention(64, 4)
+        self.inc = DoubleConv(c_in, 32)
+        self.down1 = Down(32, 64)
+        self.sa1 = SelfAttention(64)
+        self.down2 = Down(64, 64)
+        self.sa2 = SelfAttention(64)
+        self.down3 = Down(64, 128)
+        self.sa3 = SelfAttention(128)
 
-        self.bot1 = DoubleConv(64, 64)
-        self.bot3 = DoubleConv(64, 64)
+        self.bot1 = DoubleConv(128, 128)
+        self.bot3 = DoubleConv(128, 128)
 
-        self.up1 = Up(128, 32)
-        self.sa4 = SelfAttention(32, 8)
-        self.up2 = Up(64, 32)
-        self.sa5 = SelfAttention(32, 16)
+        self.up1 = Up(256, 64)
+        self.sa4 = SelfAttention(64)
+        self.up2 = Up(128, 32)
+        self.sa5 = SelfAttention(32)
         self.up3 = Up(64, 32)
-        self.sa6 = SelfAttention(32, 32)
+        self.sa6 = SelfAttention(32)
         self.outc = nn.Conv2d(32, c_out, kernel_size=1)
 
-    def pos_encoding(self, t, channels):
+    @staticmethod
+    def pos_encoding(t, channels):
         inv_freq = 1.0 / (
-            10000
-            ** (torch.arange(0, channels, 2, device=self.device).float() / channels)
+                10000
+                ** (torch.arange(0, channels, 2, device=device).float() / channels)
         )
         pos_enc_a = torch.sin(t.repeat(1, channels // 2) * inv_freq)
         pos_enc_b = torch.cos(t.repeat(1, channels // 2) * inv_freq)
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
 
-    def forward(self, x, t):
-        t = t.unsqueeze(-1).type(torch.float)
-        t = self.pos_encoding(t, self.time_dim)
+    def unet_forwad(self, x, t):
         x1 = self.inc(x)
         x2 = self.down1(x1, t)
         x2 = self.sa1(x2)
@@ -184,6 +182,11 @@ class UNet(nn.Module):
         x = self.sa6(x)
         output = self.outc(x)
         return output
+
+    def forward(self, x, t):
+        t = t.unsqueeze(-1)
+        t = self.pos_encoding(t, self.time_dim)
+        return self.unet_forwad(x, t)
 
 
 
