@@ -132,24 +132,24 @@ class UNet(nn.Module):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
-        self.inc = DoubleConv(c_in, 64)
-        self.down1 = Down(64, 128)
-        self.sa1 = SelfAttention(128, 32)
-        self.down2 = Down(128, 256)
-        self.sa2 = SelfAttention(256, 16)
-        self.down3 = Down(256, 256)
-        self.sa3 = SelfAttention(256, 8)
+        self.inc = DoubleConv(c_in, 32)
+        self.down1 = Down(32, 64)
+        #self.sa1 = SelfAttention(128, 32)
+        self.down2 = Down(64, 128)
+        #self.sa2 = SelfAttention(256, 16)
+        self.down3 = Down(128, 128)
+        #self.sa3 = SelfAttention(256, 8)
 
-        self.bot1 = DoubleConv(256, 256)
+        self.bot1 = DoubleConv(128, 256)
         #self.bot2 = DoubleConv(512, 512)
-        self.bot3 = DoubleConv(256, 256)
+        self.bot3 = DoubleConv(256, 128)
 
-        self.up1 = Up(512, 128)
-        self.sa4 = SelfAttention(128, 16)
-        self.up2 = Up(256, 64)
-        self.sa5 = SelfAttention(64, 32)
-        self.up3 = Up(128, 64)
-        self.sa6 = SelfAttention(64, 64)
+        self.up1 = Up(256, 64)
+        #self.sa4 = SelfAttention(128, 16)
+        self.up2 = Up(128, 32)
+        #self.sa5 = SelfAttention(64, 32)
+        self.up3 = Up(64, 64)
+        #self.sa6 = SelfAttention(64, 64)
         self.outc = nn.Conv2d(64, c_out, kernel_size=1)
 
     def pos_encoding(self, t, channels):
@@ -196,21 +196,15 @@ class Diffusion:
         self.img_size = img_size
         self.device = device
 
-        self.beta = self.prepare_noise_schedule().to(device)
+        self.beta = torch.linspace(beta_start, beta_end, noise_steps).to(device)
         self.alpha = 1. - self.beta
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
-
-    def prepare_noise_schedule(self):
-        return torch.linspace(self.beta_start, self.beta_end, self.noise_steps)
 
     def noise_images(self, x, t):
         sqrt_alpha_hat = torch.sqrt(self.alpha_hat[t])[:, None, None, None]
         sqrt_one_minus_alpha_hat = torch.sqrt(1 - self.alpha_hat[t])[:, None, None, None]
         e = torch.randn_like(x)
         return sqrt_alpha_hat * x + sqrt_one_minus_alpha_hat * e, e
-
-    def sample_timesteps(self, n):
-        return torch.randint(low=1, high=self.noise_steps, size=(n,))
 
     def sample(self, model, num_samples=10000):
         model.eval()
@@ -246,13 +240,12 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     mse = nn.MSELoss()
     diffusion = Diffusion(device=device)
     l = len(dataloader)
-
+    # TODO: time each epoch
     for epoch in range(n_epochs):
         epoch_loss = 0.0
-        print(f"Starting epoch {epoch}:")
         for i, (images, _) in enumerate(dataloader):
             images = images.to(device)
-            t = diffusion.sample_timesteps(images.shape[0]).to(device)
+            t = torch.randint(low=1, high=diffusion.noise_steps, size=(images.shape[0],)).to(device)
             x_t, noise = diffusion.noise_images(images, t)
             predicted_noise = model(x_t, t)
             loss = mse(noise, predicted_noise)
