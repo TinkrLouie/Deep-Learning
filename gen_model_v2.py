@@ -148,13 +148,13 @@ class UNet(nn.Module):
         self.bot1 = DoubleConv(64, 128)
         self.bot3 = DoubleConv(128, 64)
 
-        self.up1 = Up(128, 64)
-        self.sa4 = SelfAttention(64, 8)
-        self.up2 = Up(128, 32)
+        self.up1 = Up(128, 32)
+        self.sa4 = SelfAttention(32, 8)
+        self.up2 = Up(64, 32)
         self.sa5 = SelfAttention(32, 16)
-        self.up3 = Up(64, 64)
-        self.sa6 = SelfAttention(64, 32)
-        self.outc = nn.Conv2d(64, c_out, kernel_size=1)
+        self.up3 = Up(64, 32)
+        self.sa6 = SelfAttention(32, 32)
+        self.outc = nn.Conv2d(32, c_out, kernel_size=1)
 
     def pos_encoding(self, t, channels):
         inv_freq = 1.0 / (
