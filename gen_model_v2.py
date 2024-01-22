@@ -255,6 +255,7 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
         epoch_loss = 0.0
         print(f"Starting epoch {epoch}:")
         for i, (images, _) in enumerate(dataloader):
+            print('images shape:', images.shape, images[0].shape)
             images = images.to(device)
             t = diffusion.sample_timesteps(images.shape[0]).to(device)
             x_t, noise = diffusion.noise_images(images, t)
