@@ -136,13 +136,13 @@ class UNet(nn.Module):
         self.inc = DoubleConv(c_in, 16)
         self.down1 = Down(16, 32)
         self.sa1 = SelfAttention(32, 16)
-        self.down2 = Down(32, 64)
-        self.sa2 = SelfAttention(64, 8)
-        self.down3 = Down(64, 64)
+        self.down2 = Down(32, 32)
+        self.sa2 = SelfAttention(32, 8)
+        self.down3 = Down(32, 64)
         self.sa3 = SelfAttention(64, 4)
 
-        self.bot1 = DoubleConv(64, 80)
-        self.bot3 = DoubleConv(96, 80)
+        self.bot1 = DoubleConv(64, 128)
+        self.bot3 = DoubleConv(128, 64)
 
         self.up1 = Up(128, 32)
         self.sa4 = SelfAttention(32, 8)
