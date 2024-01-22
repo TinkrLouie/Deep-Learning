@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 import torch.nn.functional as F
 
+store_path = "ddpm_CIFAR100.pt"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Setting reproducibility
@@ -134,22 +135,22 @@ class UNet(nn.Module):
         self.time_dim = time_dim
         self.inc = DoubleConv(c_in, 32)
         self.down1 = Down(32, 64)
-        #self.sa1 = SelfAttention(128, 32)
+        self.sa1 = SelfAttention(128, 16)
         self.down2 = Down(64, 128)
-        #self.sa2 = SelfAttention(256, 16)
+        self.sa2 = SelfAttention(256, 8)
         self.down3 = Down(128, 128)
-        #self.sa3 = SelfAttention(256, 8)
+        #self.sa3 = SelfAttention(256, 4)
 
         self.bot1 = DoubleConv(128, 256)
-        #self.bot2 = DoubleConv(512, 512)
+        self.bot2 = DoubleConv(512, 512)
         self.bot3 = DoubleConv(256, 128)
 
         self.up1 = Up(256, 64)
-        #self.sa4 = SelfAttention(128, 16)
+        self.sa4 = SelfAttention(128, 8)
         self.up2 = Up(128, 32)
-        #self.sa5 = SelfAttention(64, 32)
+        self.sa5 = SelfAttention(64, 16)
         self.up3 = Up(64, 64)
-        #self.sa6 = SelfAttention(64, 64)
+        self.sa6 = SelfAttention(64, 32)
         self.outc = nn.Conv2d(64, c_out, kernel_size=1)
 
     def pos_encoding(self, t, channels):
@@ -167,22 +168,22 @@ class UNet(nn.Module):
         t = self.pos_encoding(t, self.time_dim)
         x1 = self.inc(x)
         x2 = self.down1(x1, t)
-        #x2 = self.sa1(x2)
+        x2 = self.sa1(x2)
         x3 = self.down2(x2, t)
-        #x3 = self.sa2(x3)
+        x3 = self.sa2(x3)
         x4 = self.down3(x3, t)
         #x4 = self.sa3(x4)
 
         x4 = self.bot1(x4)
-        #x4 = self.bot2(x4)
+        x4 = self.bot2(x4)
         x4 = self.bot3(x4)
 
         x = self.up1(x4, x3, t)
-        #x = self.sa4(x)
+        x = self.sa4(x)
         x = self.up2(x, x2, t)
-        #x = self.sa5(x)
+        x = self.sa5(x)
         x = self.up3(x, x1, t)
-        #x = self.sa6(x)
+        x = self.sa6(x)
         output = self.outc(x)
         return output
 
