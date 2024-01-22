@@ -142,7 +142,6 @@ class UNet(nn.Module):
         self.sa3 = SelfAttention(128, 4)
 
         self.bot1 = DoubleConv(128, 256)
-        self.bot2 = DoubleConv(512, 512)
         self.bot3 = DoubleConv(256, 128)
 
         self.up1 = Up(256, 64)
@@ -175,7 +174,6 @@ class UNet(nn.Module):
         x4 = self.sa3(x4)
 
         x4 = self.bot1(x4)
-        x4 = self.bot2(x4)
         x4 = self.bot3(x4)
 
         x = self.up1(x4, x3, t)
