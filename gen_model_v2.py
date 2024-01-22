@@ -138,13 +138,13 @@ class UNet(nn.Module):
         self.sa1 = SelfAttention(32, 16)
         self.down2 = Down(32, 64)
         self.sa2 = SelfAttention(64, 8)
-        self.down3 = Down(64, 128)
-        self.sa3 = SelfAttention(128, 4)
+        self.down3 = Down(64, 64)
+        self.sa3 = SelfAttention(64, 4)
 
-        self.bot1 = DoubleConv(128, 128)
-        self.bot3 = DoubleConv(128, 128)
+        self.bot1 = DoubleConv(64, 128)
+        self.bot3 = DoubleConv(128, 64)
 
-        self.up1 = Up(256, 64)
+        self.up1 = Up(128, 64)
         self.sa4 = SelfAttention(64, 8)
         self.up2 = Up(128, 32)
         self.sa5 = SelfAttention(32, 16)
