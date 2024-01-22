@@ -181,8 +181,10 @@ class UNet(nn.Module):
         x4 = self.bot1(x4)
         #x4 = self.bot2(x4)
         x4 = self.bot3(x4)
+        print('x4', x4.shape)
 
         x = self.up1(x4, x3, t)
+        print('x', x.shape)
         #x = self.sa4(x)
         x = self.up2(x, x2, t)
         #x = self.sa5(x)
