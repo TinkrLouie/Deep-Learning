@@ -132,18 +132,18 @@ class UNet(nn.Module):
     def __init__(self, c_in=3, c_out=3, time_dim=256):
         super().__init__()
         self.time_dim = time_dim
-        self.inc = DoubleConv(c_in, 32)
-        self.down1 = Down(32, 64)
-        self.sa1 = SelfAttention(64)
-        self.down2 = Down(64, 64)
+        self.inc = DoubleConv(c_in, 16)
+        self.down1 = Down(16, 32)
+        self.sa1 = SelfAttention(32)
+        self.down2 = Down(32, 64)
         self.sa2 = SelfAttention(64)
-        self.down3 = Down(64, 128)
-        self.sa3 = SelfAttention(128)
+        self.down3 = Down(64, 64)
+        self.sa3 = SelfAttention(64)
 
-        self.bot1 = DoubleConv(128, 128)
-        self.bot3 = DoubleConv(128, 128)
+        self.bot1 = DoubleConv(64, 128)
+        self.bot3 = DoubleConv(128, 64)
 
-        self.up1 = Up(256, 64)
+        self.up1 = Up(128, 64)
         self.sa4 = SelfAttention(64)
         self.up2 = Up(128, 32)
         self.sa5 = SelfAttention(32)
@@ -162,7 +162,10 @@ class UNet(nn.Module):
         pos_enc = torch.cat([pos_enc_a, pos_enc_b], dim=-1)
         return pos_enc
 
-    def unet_forwad(self, x, t):
+    def forward(self, x, t):
+        t = t.unsqueeze(-1)
+        t = self.pos_encoding(t, self.time_dim)
+
         x1 = self.inc(x)
         x2 = self.down1(x1, t)
         x2 = self.sa1(x2)
@@ -182,12 +185,6 @@ class UNet(nn.Module):
         x = self.sa6(x)
         output = self.outc(x)
         return output
-
-    def forward(self, x, t):
-        t = t.unsqueeze(-1)
-        t = self.pos_encoding(t, self.time_dim)
-        return self.unet_forwad(x, t)
-
 
 
 class Diffusion:
