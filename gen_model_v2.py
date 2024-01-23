@@ -26,7 +26,7 @@ torch.manual_seed(SEED)
 batch_size = 64
 n_channels = 3
 n_latent = 64
-lr = 0.0002
+lr = 0.001
 n_epoch = 50
 n_steps = 1000
 min_beta = 1e-4
@@ -143,11 +143,11 @@ class UNet(nn.Module):
         self.bot1 = DoubleConv(64, 64)
         self.bot3 = DoubleConv(64, 64)
 
-        self.up1 = Up(128, 32)  # 8
-        self.sa4 = SelfAttention(32)
-        self.up2 = Up(64, 16)  # 16
-        self.sa5 = SelfAttention(16)
-        self.up3 = Up(32, 32)  # 32
+        self.up1 = Up(128, 64)  # 8
+        self.sa4 = SelfAttention(64)
+        self.up2 = Up(128, 32)  # 16
+        self.sa5 = SelfAttention(32)
+        self.up3 = Up(64, 32)  # 32
         self.sa6 = SelfAttention(32)
         self.outc = nn.Conv2d(32, c_out, kernel_size=1)
 
