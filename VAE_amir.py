@@ -57,7 +57,7 @@ print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 # define the model
 class VAE(nn.Module):
-    def __init__(self, n_channels=1, f_dim=32 * 20 * 20, z_dim=256):
+    def __init__(self, n_channels=3, f_dim=32 * 20 * 20, z_dim=256):
         super().__init__()
 
         # encoder layers:
