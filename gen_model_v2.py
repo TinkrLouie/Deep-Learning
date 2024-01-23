@@ -137,9 +137,9 @@ class UNet(nn.Module):
         self.device = device
         self.time_dim = time_dim
         self.inc = DoubleConv(c_in, 16)
-        self.down1 = Down(16, 32)  # 16
-        self.sa1 = SelfAttention(32)
-        self.down2 = Down(32, 32)  # 8
+        self.down1 = Down(16, 16)  # 16
+        self.sa1 = SelfAttention(16)
+        self.down2 = Down(16, 32)  # 8
         self.sa2 = SelfAttention(32)
         self.down3 = Down(32, 64)  # 4
         self.sa3 = SelfAttention(64)
