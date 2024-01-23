@@ -231,10 +231,10 @@ class Diffusion:
 
 def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     best_loss = float("inf")
-    model = UNet()
+    model = UNet().to(device)
     optim = AdamW(model.parameters(), lr=lr)
 
-    checkpoint = torch.load(store_path)
+    checkpoint = torch.load(store_path, map_location=device)
 
     model.load_state_dict(checkpoint['state_dict'])
     optim.load_state_dict(checkpoint['optim_dict'])
@@ -246,8 +246,6 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     if total_params > 1000000:
         print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
-    model.train()
-    model.to(device)
 
     mse = nn.MSELoss()
     diffusion = Diffusion(device=device)
