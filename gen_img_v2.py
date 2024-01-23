@@ -262,6 +262,7 @@ if __name__ == '__main__':
     state_dict = torch.load(store_path)
 
     best_model.load_state_dict(state_dict, strict=False)
+    best_model.eval()
     print("Model loaded")
     diffusion = Diffusion(device=device)
 
