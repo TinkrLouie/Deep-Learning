@@ -133,24 +133,28 @@ class UNet(nn.Module):
         super().__init__()
         self.device = device
         self.time_dim = time_dim
+
+        # Downsampling
         self.inc = DoubleConv(c_in, 16)
         self.down1 = Down(16, 32)  # 16
         self.sa1 = SelfAttention(32)
-        self.down2 = Down(32, 48)  # 8
-        self.sa2 = SelfAttention(48)
-        self.down3 = Down(48, 64)  # 4
-        self.sa3 = SelfAttention(64)
+        self.down2 = Down(32, 64)  # 8
+        self.sa2 = SelfAttention(64)
+        #self.down3 = Down(64, 64)  # 4
+        #self.sa3 = SelfAttention(64)
 
-        self.bot1 = DoubleConv(64, 64)
-        self.bot3 = DoubleConv(64, 64)
+        # Bottleneck
+        self.bot1 = DoubleConv(64, 128)
+        self.bot3 = DoubleConv(128, 64)
 
-        self.up1 = Up(128, 32)  # 8
-        self.sa4 = SelfAttention(32)
-        self.up2 = Up(64, 16)  # 16
-        self.sa5 = SelfAttention(16)
-        self.up3 = Up(32, 8)  # 32
-        self.sa6 = SelfAttention(8)
-        self.outc = nn.Conv2d(8, c_out, kernel_size=1)
+        # Upsampling
+        #self.up1 = Up(128, 32)  # 8
+        #self.sa4 = SelfAttention(32)
+        self.up2 = Up(128, 32)  # 16
+        self.sa5 = SelfAttention(32)
+        self.up3 = Up(64, 16)  # 32
+        self.sa6 = SelfAttention(16)
+        self.outc = nn.Conv2d(16, c_out, kernel_size=1)
 
 
     def forward(self, x, t):
@@ -162,15 +166,15 @@ class UNet(nn.Module):
         x2 = self.sa1(x2)
         x3 = self.down2(x2, t)
         x3 = self.sa2(x3)
-        x4 = self.down3(x3, t)
-        x4 = self.sa3(x4)
+        #x4 = self.down3(x3, t)
+        #x4 = self.sa3(x4)
 
-        x4 = self.bot1(x4)
-        x4 = self.bot3(x4)
+        x3 = self.bot1(x3)
+        x3 = self.bot3(x3)
 
-        x = self.up1(x4, x3, t)
-        x = self.sa4(x)
-        x = self.up2(x, x2, t)
+        #x = self.up1(x4, x3, t)
+        #x = self.sa4(x)
+        x = self.up2(x3, x2, t)
         x = self.sa5(x)
         x = self.up3(x, x1, t)
         x = self.sa6(x)
