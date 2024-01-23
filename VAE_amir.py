@@ -55,116 +55,118 @@ print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-# define the model
-class VAE(nn.Module):
-    def __init__(self, n_channels=3, f_dim=32 * 20 * 20, z_dim=256):
-        super().__init__()
+# define the generator
+class Generator(nn.Module):
+    def __init__(self, latent_size=100, label_size=10):
+        super(Generator, self).__init__()
+        self.layer = nn.Sequential(
+            nn.Linear(latent_size + label_size, 128),
+            nn.LeakyReLU(0.2),
+            nn.Linear(128, 256),
+            nn.BatchNorm1d(256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.LeakyReLU(0.2),
+            nn.Linear(512, 1024),
+            nn.BatchNorm1d(1024),
+            nn.LeakyReLU(0.2),
+            nn.Linear(1024, n_channels * dim * dim),
+            nn.Tanh()
+        )
 
-        # encoder layers:
-        self.enc_conv1 = nn.Conv2d(n_channels, 16, 5)
-        self.enc_conv2 = nn.Conv2d(16, 32, 5)
-        # two linear layers with one for the mean and the other the variance
-        self.enc_linear1 = nn.Linear(f_dim, z_dim)
-        self.enc_linear2 = nn.Linear(f_dim, z_dim)
-
-        # decoder layers:
-        self.dec_linear = nn.Linear(z_dim, f_dim)
-        self.dec_conv1 = nn.ConvTranspose2d(32, 16, 5)
-        self.dec_conv2 = nn.ConvTranspose2d(16, n_channels, 5)
-
-    # encoder:
-    def encoder(self, x):
-        x = F.relu(self.enc_conv1(x))
-        x = F.relu(self.enc_conv2(x))
-        x = x.view(-1, 32 * 20 * 20)
-        # the output is mean (mu) and variance (logVar)
-        mu = self.enc_linear1(x)
-        logVar = self.enc_linear2(x)
-        # mu and logVar are used to sample z and compute KL divergence loss
-        return mu, logVar
-
-    # reparameterisation trick:
-    def reparameterise(self, mu, logVar):
-        # from mu and logVar, we can sample via mu + std * eps
-        std = torch.exp(logVar / 2)
-        eps = torch.randn_like(std)
-        return mu + std * eps
-
-    # decoder:
-    def decoder(self, z):
-        x = F.relu(self.dec_linear(z))
-        x = x.view(-1, 32, 20, 20)
-        x = F.relu(self.dec_conv1(x))
-        # the output is the same size as the input
-        x = torch.sigmoid(self.dec_conv2(x))
-        return x
-
-    # forward pass:
-    def forward(self, x):
-        mu, logVar = self.encoder(x)
-        z = self.reparameterise(mu, logVar)
-        out = self.decoder(z)
-        # mu and logVar are returned as well as the output for loss computation
-        return out, mu, logVar
+    def forward(self, x, c):
+        x, c = x.view(x.size(0), -1), c.view(c.size(0), -1).float()
+        x = torch.cat((x, c), 1)  # [input, label] concatenated
+        x = self.layer(x)
+        return x.view(x.size(0), n_channels, dim, dim)
 
 
-model = VAE().to(device)
-print(f'The model has {len(torch.nn.utils.parameters_to_vector(model.parameters()))} parameters.')
+# define the discriminator
+class Discriminator(nn.Module):
+    def __init__(self, label_size=10):
+        super(Discriminator, self).__init__()
+        self.layer = nn.Sequential(
+            nn.Linear(n_channels * dim * dim + label_size, 512),
+            nn.LeakyReLU(0.2),
+            nn.Linear(512, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 1),
+            nn.Sigmoid(),
+        )
 
-print('The optimiser has been created!')
-optimiser = torch.optim.Adam(model.parameters(), lr=0.001)
+    def forward(self, x, c):
+        x, c = x.view(x.size(0), -1), c.view(c.size(0), -1).float()
+        x = torch.cat((x, c), 1)  # [input, label] concatenated
+        return self.layer(x)
 
 
-# create/clean the directories
-def setup_directory(directory):
-    if os.path.exists(directory):
-        shutil.rmtree(directory)  # remove any existing (old) data
-    os.makedirs(directory)
+G = Generator().to(device)
+D = Discriminator().to(device)
 
+print(f'Generator has {len(torch.nn.utils.parameters_to_vector(G.parameters()))} parameters.')
+print(f'Discriminator has {len(torch.nn.utils.parameters_to_vector(D.parameters()))} parameters')
 
-real_images_dir = 'real_images'
-generated_images_dir = 'VAE_results'
-setup_directory(generated_images_dir)
+# initialise the optimiser
+optimiser_G = torch.optim.Adam(G.parameters(), lr=0.0002, betas=(0.5, 0.999))
+optimiser_D = torch.optim.Adam(D.parameters(), lr=0.0002, betas=(0.5, 0.999))
+print('Optimisers have been created!')
 
-
+criterion = nn.BCELoss()
 epoch = 0
+print('Loss function is Binary Cross Entropy!')
+
+
 # training loop
-while epoch < 20:
+while epoch < 20000:
 
-    # for metrics
-    loss_arr = np.zeros(0)
+    # arrays for metrics
+    logs = {}
+    gen_loss_arr = np.zeros(0)
+    dis_loss_arr = np.zeros(0)
 
-    # iterate over the training dateset
+    # iterate over the train dateset
     for i, batch in enumerate(train_loader):
-        # sample x from the dataset
-        x, _ = batch
-        x = x.to(device)
+        x, t = batch
+        x, t = x.to(device), t.to(device)
 
-        # forward pass to obtain image, mu, and logVar
-        x_hat, mu, logVar = model(x)
+        # convert target labels "t" to a one-hot vector, e.g. 3 becomes [0,0,0,1,0,0,0,...]
+        y = torch.zeros(x.size(0), 10).long().to(device).scatter(1, t.view(x.size(0), 1), 1)
 
-        # caculate loss - BCE combined with KL
-        kl_divergence = 0.5 * torch.sum(-1 - logVar + mu.pow(2) + logVar.exp())
-        loss = F.binary_cross_entropy(x_hat, x, size_average=False) + kl_divergence
+        # train discriminator
+        z = torch.randn(x.size(0), 100).to(device)
+        l_r = criterion(D(x, y), torch.ones([64, 1]).to(device))  # real -> 1
+        l_f = criterion(D(G(z, y), y), torch.zeros([64, 1]).to(device))  # fake -> 0
+        loss_d = (l_r + l_f) / 2.0
+        optimiser_D.zero_grad()
+        loss_d.backward()
+        optimiser_D.step()
 
-        # backpropagate to compute the gradients of the loss w.r.t the parameters and optimise
-        optimiser.zero_grad()
-        loss.backward()
-        optimiser.step()
+        # train generator
+        z = torch.randn(x.size(0), 100).to(device)
+        loss_g = criterion(D(G(z, y), y), torch.ones([64, 1]).to(device))  # fake -> 1
+        optimiser_G.zero_grad()
+        loss_g.backward()
+        optimiser_G.step()
 
-        # collect stats
-        loss_arr = np.append(loss_arr, loss.item())
+        gen_loss_arr = np.append(gen_loss_arr, loss_g.item())
+        dis_loss_arr = np.append(dis_loss_arr, loss_d.item())
 
-    # sample
-    z = torch.randn_like(mu)
-    print(z.shape)
-    g = model.decoder(z)
-    print(g.shape)
+    # conditional sample of 10x10
+    G.eval()
+    print('loss d: {:.3f}, loss g: {:.3f}'.format(gen_loss_arr.mean(), dis_loss_arr.mean()))
+    grid = np.zeros([dim * 10, dim * 10])
+    for j in range(10):
+        c = torch.zeros([10, 10]).to(device)
+        c[:, j] = 1
+        z = torch.randn(10, 100).to(device)
+        y_hat = G(z, c).view(10, dim, dim)
+        result = y_hat.cpu().data.numpy()
+        grid[j * dim:(j + 1) * dim] = np.concatenate([x for x in result], axis=-1)
+    plt.grid(False)
+    plt.imshow(grid, cmap='gray')
+    plt.show()
+    plt.pause(0.0001)
+    G.train()
 
-    save_image(g.view(64, 3, 32, 32), 'VAE_results/sample_' + str(epoch) + '.png')
-
-    epoch += 1
-
-# compute FID
-score = fid.compute_fid(real_images_dir, generated_images_dir, mode="clean")
-print(f"FID score: {score}")
+    epoch = epoch + 1
