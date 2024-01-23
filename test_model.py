@@ -229,7 +229,7 @@ class Diffusion:
         return x
 
 
-def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
+def train(dataloader, n_epochs=10, store_path="ddpm_model.pt"):
     best_loss = float("inf")
     model = UNet().to(device)
 
@@ -238,7 +238,7 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     if total_params > 1000000:
         print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
-    optimizer = AdamW(model.parameters(), lr=lr)
+    optim = AdamW(model.parameters(), lr=lr)
     mse = nn.MSELoss()
     diffusion = Diffusion(device=device)
     l = len(dataloader)
@@ -252,9 +252,9 @@ def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
             predicted_noise = model(x_t, t)
             loss = mse(noise, predicted_noise)
 
-            optimizer.zero_grad()
+            optim.zero_grad()
             loss.backward()
-            optimizer.step()
+            optim.step()
 
             epoch_loss += loss.item() * len(images) / l
 
@@ -292,4 +292,4 @@ if __name__ == '__main__':
     print(f'Size of training dataset: {len(train_loader.dataset)}')
     print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
-    train(train_loader, 1)
+    train(train_loader)
