@@ -136,6 +136,11 @@ def loss_function(recon_x, x, mu, logvar):
 
 
 model = VAE(32, 100, 20)
+total_params = len(nn.utils.parameters_to_vector(model.parameters()))
+print(f'> Number of model parameters {total_params}')
+if total_params > 1000000:
+    print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
+
 optimizer = Adam(model.parameters(), lr=1e-3)
 
 
