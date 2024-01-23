@@ -255,14 +255,13 @@ if __name__ == '__main__':
     print(f'Size of training dataset: {len(train_loader.dataset)}')
     print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
-    store_path = "ddpm_CIFAR100.pt"
+    store_path = "ddpm_model.pt"
 
     # Loading the trained model
     best_model = UNet().to(device)
     state_dict = torch.load(store_path)
 
     best_model.load_state_dict(state_dict, strict=False)
-    best_model.eval()
     print("Model loaded")
     diffusion = Diffusion(device=device)
 
