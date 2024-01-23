@@ -135,8 +135,8 @@ class UNet(nn.Module):
         self.time_dim = time_dim
 
         # Downsampling
-        self.inc = DoubleConv(c_in, 16)
-        self.down1 = Down(16, 64)  # 16
+        self.inc = DoubleConv(c_in, 32)
+        self.down1 = Down(32, 64)  # 16
         self.sa1 = SelfAttention(64)
         self.down2 = Down(64, 64)  # 8
         self.sa2 = SelfAttention(64)
