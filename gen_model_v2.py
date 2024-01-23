@@ -152,9 +152,9 @@ class UNet(nn.Module):
         #self.sa4 = SelfAttention(32)
         self.up2 = Up(128, 32)  # 16
         self.sa5 = SelfAttention(32)
-        self.up3 = Up(64, 48)  # 32
-        self.sa6 = SelfAttention(48)
-        self.outc = nn.Conv2d(48, c_out, kernel_size=1)
+        self.up3 = Up(64, 64)  # 32
+        self.sa6 = SelfAttention(64)
+        self.outc = nn.Conv2d(64, c_out, kernel_size=1)
 
 
     def forward(self, x, t):
