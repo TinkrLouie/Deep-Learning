@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 import torch.nn.functional as F
 
-store_path = "ddpm_CIFAR100.pt"
+store_path = "ddpm_model.pt"
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Setting reproducibility
@@ -229,7 +229,7 @@ class Diffusion:
         return x
 
 
-def train(dataloader, n_epochs=10, store_path="ddpm_model.pt"):
+def train(dataloader, n_epochs=50, store_path="ddpm_model.pt"):
     best_loss = float("inf")
     model = UNet().to(device)
 
@@ -264,7 +264,10 @@ def train(dataloader, n_epochs=10, store_path="ddpm_model.pt"):
         # Storing the model
         if best_loss > epoch_loss:
             best_loss = epoch_loss
-            torch.save(model.state_dict(), store_path)
+            state = {'epoch': epoch + 1,
+                     'state_dict': model.state_dict(),
+                     'optim_dict': optim.state_dict()}
+            torch.save(state, store_path)
             log_string += " --> Current best model (stored)"
 
         print(log_string)
