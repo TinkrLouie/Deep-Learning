@@ -175,7 +175,7 @@ if __name__ == '__main__':
     while iters < 50000:
         for epoch in range(params['n_epochs']):
             for i, data in enumerate(train_loader, 0):
-                if iters % 1000:
+                if iters % 1000 == 1:
                     print("Step: ", iters)
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
@@ -228,7 +228,7 @@ if __name__ == '__main__':
                 optimizerG.step()
 
                 # Output training stats
-                if i % 200 == 0:
+                if i == 0:
                     print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
                           % (epoch, params['n_epochs'], i, len(train_loader),
                              errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
