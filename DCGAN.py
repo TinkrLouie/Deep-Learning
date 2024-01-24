@@ -175,7 +175,8 @@ if __name__ == '__main__':
     while iters < 50000:
         for epoch in range(params['n_epochs']):
             for i, data in enumerate(train_loader, 0):
-                print("Step: ", iters)
+                if iters % 1000:
+                    print("Step: ", iters)
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 ###########################
