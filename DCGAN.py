@@ -31,7 +31,7 @@ params = {
     'nc': 3,
     'n_latent': 32,
     'lr': 0.002,
-    'n_epochs': 50,
+    'n_epochs': 60,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
@@ -117,6 +117,12 @@ def weights_init(m):
 #real_label = params['real_label']
 #fake_label = params['fake_label']
 
+# create/clean the directories
+def setup_directory(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)  # remove any existing (old) data
+    os.makedirs(directory)
+
 
 if __name__ == '__main__':
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
@@ -161,12 +167,15 @@ if __name__ == '__main__':
     G_losses = []
     D_losses = []
     iters = 0
+    n_samples = 10000
+    real_images_dir = 'real_images'
+    generated_images_dir = 'generated_images'
 
     print("Training:")
     while iters < 50000:
         for epoch in range(params['n_epochs']):
             for i, data in enumerate(train_loader, 0):
-
+                print("Step: ", iters)
                 ############################
                 # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
                 ###########################
@@ -233,6 +242,19 @@ if __name__ == '__main__':
                         fake = netG(fixed_noise).detach().cpu()
                     img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
+                # Sample from Generator
+                if epoch == params['n_epochs']-1 and i == len(train_loader)-1:
+                    with torch.no_grad():
+                        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+                        fake = netG(sample_noise).detach().cpu()
+
+                    # setup_directory(real_images_dir)
+                    setup_directory(generated_images_dir)
+
+                    for n, image in enumerate(fake):
+                        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
+
+
                 iters += 1
 
     plt.figure(figsize=(10, 5))
@@ -249,3 +271,7 @@ if __name__ == '__main__':
     plt.title("Fake Images")
     plt.imshow(np.transpose(img_list[-1], (1, 2, 0)))
     plt.savefig('gen_img.png')
+
+    # compute FID
+    score = fid.compute_fid(real_images_dir, generated_images_dir, mode="clean")
+    print(f"FID score: {score}")
