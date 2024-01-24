@@ -12,6 +12,7 @@ from torchvision.datasets import CIFAR100
 from torch.optim import SGD
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
 
 # Setting reproducibility
 SEED = 0
@@ -25,6 +26,7 @@ dim = 32
 n_class = 100
 n_epoch = 50
 lr = 0.01
+
 
 # helper function to make getting another batch of data easier
 def cycle(iterable):
@@ -134,7 +136,7 @@ def weight_init_normal(m):
         m.bias.data.fill_(0)
 
 
-cnn = ConvNet()
+cnn = ConvNet().to(device)
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
 
@@ -152,23 +154,24 @@ def train(model, lr, trainer, validater):
     # Number of epochs to train for
     loss_keeper = {'train': [], 'valid': []}
     acc_keeper = {'train': [], 'valid': []}
-    train_class_correct = list(0. for i in range(n_class))
-    valid_class_correct = list(0. for i in range(n_class))
-    class_total = list(0. for i in range(n_class))
-    epochs = 50
+    train_class_correct = list(0. for _ in range(n_class))
+    valid_class_correct = list(0. for _ in range(n_class))
+    class_total = list(0. for _ in range(n_class))
+    print(len(class_total))
 
     # minimum validation loss ----- set initial minimum to infinity
     valid_loss_min = np.Inf
 
-    for epoch in range(epochs):
+    for epoch in range(n_epoch):
         train_loss = 0.0
         valid_loss = 0.0
-        train_correct = 0.0
-        valid_correct = 0.0
+        #train_correct = 0.0
+        #valid_correct = 0.0
 
         model.train()  # TURN ON DROPOUT for training
         for images, labels in trainer:
             images, labels = images.to(device), labels.to(device)
+            #print(len(labels))
             optimizer.zero_grad()
             output = model(images)
             loss = criterion(output, labels)
@@ -178,6 +181,7 @@ def train(model, lr, trainer, validater):
             _, pred = torch.max(output, 1)
             train_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
             for idx in range(batch_size):
+                print(idx)
                 label = labels[idx]
                 train_class_correct[label] += train_correct[idx].item()
                 class_total[label] += 1
@@ -230,8 +234,8 @@ loss, acc = train(cnn, lr, train_loader, valid_loader)
 
 def test(model):
     test_loss = 0
-    class_correct = list(0. for i in range(n_class))
-    class_total = list(0. for i in range(n_class))
+    class_correct = list(0. for _ in range(n_class))
+    class_total = list(0. for _ in range(n_class))
 
     model.eval()  # test the model with dropout layers off
     for images, labels in test_loader:
