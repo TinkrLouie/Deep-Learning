@@ -1,21 +1,41 @@
-# -*- coding: utf-8 -*-
-import math
+import random
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
-import matplotlib.pyplot as plt
-from IPython import display as disp
+from matplotlib import pyplot as plt
+from torch.utils.data import DataLoader, SubsetRandomSampler
+from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize
+import os
+from torchvision.datasets import CIFAR100
+from torch.optim import SGD
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
+# Setting reproducibility
+SEED = 0
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
+batch_size = 64
+n_channels = 3
+dim = 32
+n_class = 100
+n_epoch = 50
+lr = 0.01
 
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
         for x in iterable:
             yield x
+
+
+def RGBshow(img):
+    img = img * 0.5 + 0.5
+    plt.imshow(np.transpose(img, (1, 2, 0)))
 
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
@@ -30,169 +50,214 @@ class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee',
                'television', 'tiger', 'tractor', 'train', 'trout', 'tulip', 'turtle', 'wardrobe', 'whale',
                'willow_tree', 'wolf', 'woman', 'worm', ]
 
-train_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.CIFAR100('data', train=True, download=True, transform=torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor()
-    ])),
-    batch_size=64, drop_last=True)
+transform_train = Compose([
+    RandomHorizontalFlip(),
+    RandomRotation(10),
+    ToTensor(),
+    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+])
 
-test_loader = torch.utils.data.DataLoader(
-    torchvision.datasets.CIFAR100('data', train=False, download=True, transform=torchvision.transforms.Compose([
-        torchvision.transforms.ToTensor()
-    ])),
-    batch_size=64, drop_last=True)
+# Normalize the test set same as training set without augmentation
+transform_test = Compose([
+    ToTensor(),
+    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+])
 
-train_iterator = iter(cycle(train_loader))
-test_iterator = iter(cycle(test_loader))
+ds = CIFAR100
+train_dataset = ds("./datasets", download=True, train=True, transform=transform_train)
+# train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
 
-print(f'> Size of training dataset {len(train_loader.dataset)}')
-print(f'> Size of test dataset {len(test_loader.dataset)}')
+test_dataset = ds("./datasets", download=True, train=False, transform=transform_test)
+# test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
 
-"""**View some of the test dataset**"""
+num_workers = 2
 
-plt.rcParams['figure.dpi'] = 70
-plt.figure(figsize=(10, 10))
-for i in range(25):
-    plt.subplot(5, 5, i + 1)
-    plt.xticks([])
-    plt.yticks([])
-    img = test_loader.dataset[i][0].numpy().transpose(1, 2, 0)
-    plt.imshow(img)
-    plt.xlabel(class_names[test_loader.dataset[i][1]])
-plt.show()
+valid_size = 0.2
+train_length = len(train_dataset)
+indices = list(range(len(train_dataset)))
+split = int(np.floor(valid_size * train_length))
+
+np.random.shuffle(indices)
+
+train_idx = indices[split:]
+valid_idx = indices[:split]
+
+train_sampler = SubsetRandomSampler(train_idx)
+validation_sampler = SubsetRandomSampler(valid_idx)
+
+train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
+valid_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=validation_sampler)
+test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+
+print(f'Size of training dataset: {len(train_loader.dataset)}')
+print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-# this is not a very good baseline classifier
-class Classifier(nn.Module):
-    def __init__(self, params):
-        super(Classifier, self).__init__()
+class ConvNet(nn.Module):
+    def __init__(self):
+        super(ConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.b1 = nn.BatchNorm2d(16)
+        self.b2 = nn.BatchNorm2d(48)
+        self.b3 = nn.BatchNorm2d(64)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.layer1 = nn.Linear(32 * 32 * params['n_channels'], params['n_hidden'])
-        self.layer2 = nn.Linear(params['n_hidden'], params['n_classes'])
+        self.dropout = nn.Dropout(0.1)
+        self.fc1 = nn.Linear(64, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.out = nn.Linear(64, 100)
 
     def forward(self, x):
-        x = self.layer1(x.view(x.size(0), -1))
-        x = torch.relu(x)
-        x = self.layer2(x)
-        return x.view(x.size(0), -1)
+        x = self.pool(F.relu(self.b1(self.conv1(x))))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.b2(self.conv3(x))))
+        x = self.pool(F.relu(self.conv4(x)))
+        x = self.pool(F.relu(self.b3(self.conv5(x))))
+        x = x.view(-1, 64)
+        x = self.dropout(x)
+        x = self.dropout(F.relu(self.fc1(x)))
+        x = self.dropout(F.relu(self.fc2(x)))
+        x = self.out(x)
+        return x
 
 
-# hyperparameters
-params = {
-    'n_channels': 3,  # number of channels
-    'n_hidden': 30,  # change to increase parameters
-    'n_classes': 100  # number of classes for CIFAR-100
-}
+def weight_init_normal(m):
+    classname = m.__class__.__name__
+    if classname.find('Linear') != -1:
+        n = m.in_features
+        y = (1.0 / np.sqrt(n))
+        m.weight.data.normal_(0, y)
+        m.bias.data.fill_(0)
 
-N = Classifier(params).to(device)
 
+cnn = ConvNet()
 # print the number of parameters - this should be included in your report
-print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(N.parameters()))}')
+print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
 
-if len(torch.nn.utils.parameters_to_vector(N.parameters())) > 100000:
+if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
-# initialise the optimiser
-optimiser = torch.optim.Adam(N.parameters(), lr=0.001)
-plot_data = []
-steps = 0
+cnn.apply(weight_init_normal)
+
+criterion = nn.CrossEntropyLoss()
 
 
-# keep within our optimisation step budget
-while steps < 10000:
+def train(model, lr, trainer, validater):
+    optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
-    # arrays for metrics
-    train_loss_arr = np.zeros(0)
-    train_acc_arr = np.zeros(0)
-    test_acc_arr = np.zeros(0)
+    # Number of epochs to train for
+    loss_keeper = {'train': [], 'valid': []}
+    acc_keeper = {'train': [], 'valid': []}
+    train_class_correct = list(0. for i in range(n_class))
+    valid_class_correct = list(0. for i in range(n_class))
+    class_total = list(0. for i in range(n_class))
+    epochs = 50
 
-    # iterate through some of the train dateset
-    for i in range(1000):
-        x, t = next(train_iterator)
-        x, t = x.to(device), t.to(device)
+    # minimum validation loss ----- set initial minimum to infinity
+    valid_loss_min = np.Inf
 
-        optimiser.zero_grad()
-        p = N(x)
-        pred = p.argmax(dim=1, keepdim=True)
-        loss = torch.nn.functional.cross_entropy(p, t)
-        loss.backward()
-        optimiser.step()
-        steps += 1
+    for epoch in range(epochs):
+        train_loss = 0.0
+        valid_loss = 0.0
+        train_correct = 0.0
+        valid_correct = 0.0
 
-        train_loss_arr = np.append(train_loss_arr, loss.cpu().data)
-        train_acc_arr = np.append(train_acc_arr, pred.data.eq(t.view_as(pred)).float().mean().item())
+        model.train()  # TURN ON DROPOUT for training
+        for images, labels in trainer:
+            images, labels = images.to(device), labels.to(device)
+            optimizer.zero_grad()
+            output = model(images)
+            loss = criterion(output, labels)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+            _, pred = torch.max(output, 1)
+            train_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
+            for idx in range(batch_size):
+                label = labels[idx]
+                train_class_correct[label] += train_correct[idx].item()
+                class_total[label] += 1
 
-    # iterate over the entire test dataset
-    for x, t in test_loader:
-        x, t = x.to(device), t.to(device)
-        p = N(x)
-        loss = torch.nn.functional.cross_entropy(p, t)
-        pred = p.argmax(dim=1, keepdim=True)
-        test_acc_arr = np.append(test_acc_arr, pred.data.eq(t.view_as(pred)).float().mean().item())
+        model.eval()
+        for images, labels in validater:
+            images, labels = images.to(device), labels.to(device)
+            output = model(images)
+            loss = criterion(output, labels)
+            valid_loss += loss.item()
+            _, pred = torch.max(output, 1)
+            valid_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
+            for idx in range(batch_size):
+                label = labels[idx]
+                valid_class_correct[label] += valid_correct[idx].item()
+                class_total[label] += 1
 
-    # print your loss and accuracy data - include this in the final report
-    print('steps: {:.2f}, train loss: {:.3f}, train acc: {:.3f}±{:.3f}, test acc: {:.3f}±{:.3f}'.format(
-        steps, train_loss_arr.mean(), train_acc_arr.mean(), train_acc_arr.std(), test_acc_arr.mean(),
-        test_acc_arr.std()))
+        # Calculating loss over entire batch size for every epoch
+        train_loss = train_loss / len(trainer)
+        valid_loss = valid_loss / len(validater)
 
-    # plot your accuracy graph - add a graph like this in your final report
-    plot_data.append(
-        [steps, np.array(train_acc_arr).mean(), np.array(train_acc_arr).std(), np.array(test_acc_arr).mean(),
-         np.array(test_acc_arr).std()])
-    reward_list = []
-    plt.plot([x[0] for x in plot_data], [x[1] for x in plot_data], '-', color='tab:grey', label="Train accuracy")
-    plt.fill_between([x[0] for x in plot_data], [x[1] - x[2] for x in plot_data], [x[1] + x[2] for x in plot_data],
-                     alpha=0.2, color='tab:grey')
-    plt.plot([x[0] for x in plot_data], [x[3] for x in plot_data], '-', color='tab:purple', label="Test accuracy")
-    plt.fill_between([x[0] for x in plot_data], [x[3] - x[4] for x in plot_data], [x[3] + x[4] for x in plot_data],
-                     alpha=0.2, color='tab:purple')
-    plt.xlabel('Steps')
-    plt.ylabel('Accuracy')
-    plt.legend(loc="upper left")
-    plt.show()
-    disp.clear_output(wait=True)
+        # Calculating loss over entire batch size for every epoch
+        train_acc = float(100. * np.sum(train_class_correct) / np.sum(class_total))
+        valid_acc = float(100. * np.sum(valid_class_correct) / np.sum(class_total))
 
+        # saving loss values
+        loss_keeper['train'].append(train_loss)
+        loss_keeper['valid'].append(valid_loss)
 
+        # saving acc values
+        acc_keeper['train'].append(train_acc)
+        acc_keeper['valid'].append(valid_acc)
 
-def plot_image(i, predictions_array, true_label, img):
-    predictions_array, true_label, img = predictions_array[i], true_label[i], img[i]
-    plt.grid(False)
-    plt.xticks([])
-    plt.yticks([])
-    img = np.transpose(img, (1, 2, 0))
-    plt.imshow(img)
+        print(f"Epoch : {epoch + 1}")
+        print(f"Training Loss : {train_loss}\tValidation Loss : {valid_loss}")
 
-    predicted_label = np.argmax(predictions_array)
-    color = '#335599' if predicted_label == true_label else '#ee4433'
+        if valid_loss <= valid_loss_min:
+            print(f"Validation loss decreased from : {valid_loss_min} ----> {valid_loss} ----> Saving Model.......")
+            z = type(model).__name__
+            torch.save(model.state_dict(), z + '_model.pth')
+            valid_loss_min = valid_loss
 
-    plt.xlabel("{} {:2.0f}% ({})".format(class_names[predicted_label],
-                                         100 * np.max(predictions_array),
-                                         class_names[true_label]),
-               color=color)
+        print(f"Training Accuracy : {train_acc}\tValidation Accuracy : {valid_acc}\n\n")
 
-
-def plot_value_array(i, predictions_array, true_label):
-    predictions_array, true_label = predictions_array[i], true_label[i]
-    plt.grid(False)
-    plt.xticks([])
-    plt.yticks([])
-    thisplot = plt.bar(range(100), predictions_array, color="#777777")
-    plt.ylim([0, 1])
-    predicted_label = np.argmax(predictions_array)
-
-    thisplot[predicted_label].set_color('#ee4433')
-    thisplot[true_label].set_color('#335599')
+    return loss_keeper, acc_keeper
 
 
-test_images, test_labels = next(test_iterator)
-test_images, test_labels = test_images.to(device), test_labels.to(device)
-test_preds = torch.softmax(N(test_images), dim=1).data.cpu().numpy()
-num_rows = 8
-num_cols = 4
-num_images = num_rows * num_cols
-plt.figure(figsize=(2 * 2 * num_cols, 2 * num_rows))
-for i in range(num_images):
-    plt.subplot(num_rows, 2 * num_cols, 2 * i + 1)
-    plot_image(i, test_preds, test_labels.cpu().numpy(), test_images.cpu().numpy())  # Used .numpy() here
-    plt.subplot(num_rows, 2 * num_cols, 2 * i + 2)
-    plot_value_array(i, test_preds, test_labels.cpu().numpy())
+loss, acc = train(cnn, lr, train_loader, valid_loader)
+
+
+def test(model):
+    test_loss = 0
+    class_correct = list(0. for i in range(n_class))
+    class_total = list(0. for i in range(n_class))
+
+    model.eval()  # test the model with dropout layers off
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+        output = model(images)
+        loss = criterion(output, labels)
+        test_loss += loss.item()
+        _, pred = torch.max(output, 1)
+        correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
+
+        for idx in range(batch_size):
+            label = labels[idx]
+            class_correct[label] += correct[idx].item()
+            class_total[label] += 1
+
+    test_loss = test_loss / len(test_loader)
+    print(f'For {type(model).__name__} :')
+    print(f"Test Loss: {test_loss}")
+    print(f"Correctly predicted per class : {class_correct}, Total correctly perdicted : {sum(class_correct)}")
+    print(f"Total Predictions per class : {class_total}, Total predictions to be made : {sum(class_total)}\n")
+    for i in range(10):
+        if class_total[i] > 0:
+            print(
+                f"Test Accuracy of class {class_names[i]} : {float(100 * class_correct[i] / class_total[i])}% where {int(np.sum(class_correct[i]))} of {int(np.sum(class_total[i]))} were predicted correctly")
+        else:
+            print('Test Accuracy of %5s: N/A (no training examples)' % (class_names[i]))
+
+    print(
+        f"\nOverall Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}% where {int(np.sum(class_correct))} of {int(np.sum(class_total))} were predicted correctly")
