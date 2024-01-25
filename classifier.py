@@ -265,7 +265,7 @@ cnn.apply(weight_init_normal)
 
 criterion = nn.CrossEntropyLoss()
 
-loss, acc = train(cnn, lr, train_loader)
+loss, acc = train(cnn, lr, train_iterator)
 test(cnn)
 
 # TODO: data visualisation of train loss and accuracy
