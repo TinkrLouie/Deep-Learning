@@ -139,7 +139,7 @@ def weight_init_normal(m):
         m.bias.data.fill_(0)
 
 
-def train(model, lr, trainer):
+def train(model, lr):
     optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
     # Number of epochs to train for
@@ -159,7 +159,7 @@ def train(model, lr, trainer):
         model.train()
         #for images, labels in trainer:
         for _ in range(1000):
-            images, labels = next(trainer)
+            images, labels = next(train_iterator)
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             output = model(images)
@@ -188,7 +188,7 @@ def train(model, lr, trainer):
         #        class_total[label] += 1
 
         # Calculating loss over entire batch size for every epoch
-        train_loss = train_loss / len(trainer)
+        train_loss = train_loss / len(train_loader)
         #valid_loss = valid_loss / len(validater)
 
         # Calculating loss over entire batch size for every epoch
@@ -265,7 +265,7 @@ cnn.apply(weight_init_normal)
 
 criterion = nn.CrossEntropyLoss()
 
-loss, acc = train(cnn, lr, train_iterator)
+loss, acc = train(cnn, lr)
 test(cnn)
 
 # TODO: data visualisation of train loss and accuracy
