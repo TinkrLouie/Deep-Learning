@@ -24,7 +24,7 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 12
+n_epoch = 10
 lr = 0.01
 valid_size = 0.2
 
@@ -61,27 +61,38 @@ transform_test = Compose([
 
 ds = CIFAR100
 train_dataset = ds("./datasets", download=True, train=True, transform=transform_train)
-# train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
 
 test_dataset = ds("./datasets", download=True, train=False, transform=transform_test)
-# test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
 
 
-train_length = len(train_dataset)
-indices = list(range(len(train_dataset)))
-split = int(np.floor(valid_size * train_length))
+#train_length = len(train_dataset)
+#indices = list(range(len(train_dataset)))
+#split = int(np.floor(valid_size * train_length))
+#
+#np.random.shuffle(indices)
+#
+#train_idx = indices[split:]
+#valid_idx = indices[:split]
+#
+#train_sampler = SubsetRandomSampler(train_idx)
+#validation_sampler = SubsetRandomSampler(valid_idx)
 
-np.random.shuffle(indices)
 
-train_idx = indices[split:]
-valid_idx = indices[:split]
+# helper function to make getting another batch of data easier
+def cycle(iterable):
+    while True:
+        for x in iterable:
+            yield x
 
-train_sampler = SubsetRandomSampler(train_idx)
-validation_sampler = SubsetRandomSampler(valid_idx)
 
-train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
-valid_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=validation_sampler)
-test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+#train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
+#valid_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=validation_sampler)
+#test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
+train_iterator = iter(cycle(train_loader))
+#valid_iterator = iter(cycle(valid_loader))
+test_iterator = iter(cycle(test_loader))
 
 print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
@@ -128,27 +139,27 @@ def weight_init_normal(m):
         m.bias.data.fill_(0)
 
 
-def train(model, lr, trainer, validater):
+def train(model, lr, trainer):
     optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
     # Number of epochs to train for
     loss_keeper = {'train': [], 'valid': []}
     acc_keeper = {'train': [], 'valid': []}
     train_class_correct = list(0. for _ in range(n_class))
-    valid_class_correct = list(0. for _ in range(n_class))
+    #valid_class_correct = list(0. for _ in range(n_class))
     class_total = list(0. for _ in range(n_class))
 
     # minimum validation loss ----- set initial minimum to infinity
-    valid_loss_min = np.Inf
+    #valid_loss_min = np.Inf
     step = 0
     for epoch in range(n_epoch):
-        if epoch == n_epoch - 1:
-            print(step)
         train_loss = 0.0
-        valid_loss = 0.0
+        #valid_loss = 0.0
 
         model.train()
-        for images, labels in trainer:
+        #for images, labels in trainer:
+        for _ in range(1000):
+            images, labels = next(trainer)
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             output = model(images)
@@ -163,46 +174,47 @@ def train(model, lr, trainer, validater):
                 class_total[label] += 1
             step += 1
 
-        model.eval()
-        for images, labels in validater:
-            images, labels = images.to(device), labels.to(device)
-            output = model(images)
-            loss = criterion(output, labels)
-            valid_loss += loss.item()
-            _, pred = torch.max(output, 1)
-            valid_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
-            for idx, label in enumerate(labels):
-                # for idx in range(batch_size):
-                valid_class_correct[label] += valid_correct[idx].item()
-                class_total[label] += 1
+        #model.eval()
+        #for images, labels in validater:
+        #    images, labels = images.to(device), labels.to(device)
+        #    output = model(images)
+        #    loss = criterion(output, labels)
+        #    valid_loss += loss.item()
+        #    _, pred = torch.max(output, 1)
+        #    valid_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
+        #    for idx, label in enumerate(labels):
+        #        # for idx in range(batch_size):
+        #        valid_class_correct[label] += valid_correct[idx].item()
+        #        class_total[label] += 1
 
         # Calculating loss over entire batch size for every epoch
         train_loss = train_loss / len(trainer)
-        valid_loss = valid_loss / len(validater)
+        #valid_loss = valid_loss / len(validater)
 
         # Calculating loss over entire batch size for every epoch
         train_acc = float(100. * np.sum(train_class_correct) / np.sum(class_total))
-        valid_acc = float(100. * np.sum(valid_class_correct) / np.sum(class_total))
+        #valid_acc = float(100. * np.sum(valid_class_correct) / np.sum(class_total))
 
         # saving loss values
         loss_keeper['train'].append(train_loss)
-        loss_keeper['valid'].append(valid_loss)
+        #loss_keeper['valid'].append(valid_loss)
 
         # saving acc values
         acc_keeper['train'].append(train_acc)
-        acc_keeper['valid'].append(valid_acc)
+        #acc_keeper['valid'].append(valid_acc)
 
         print(f"Epoch : {epoch + 1}")
-        print(f"Training Loss : {train_loss}\tValidation Loss : {valid_loss}")
+        #print(f"Training Loss : {train_loss}\tValidation Loss : {valid_loss}")
+        print(f"Training Loss : {train_loss}")
+        #if valid_loss <= valid_loss_min:
+        #    print(f"Validation loss decreased from : {valid_loss_min} ----> {valid_loss} ----> Saving Model.......")
+        #    z = type(model).__name__
+        #    torch.save(model.state_dict(), z + '_model.pth')
+        #    valid_loss_min = valid_loss
 
-        if valid_loss <= valid_loss_min:
-            print(f"Validation loss decreased from : {valid_loss_min} ----> {valid_loss} ----> Saving Model.......")
-            z = type(model).__name__
-            torch.save(model.state_dict(), z + '_model.pth')
-            valid_loss_min = valid_loss
-
-        print(f"Training Accuracy : {train_acc}\tValidation Accuracy : {valid_acc}\n\n")
-
+        #print(f"Training Accuracy : {train_acc}\tValidation Accuracy : {valid_acc}\n\n")
+        print(f"Training Accuracy : {train_acc}\n\n")
+    print(step)
     return loss_keeper, acc_keeper
 
 
@@ -212,7 +224,9 @@ def test(model):
     class_total = list(0. for _ in range(n_class))
 
     model.eval()  # test the model with dropout layers off
-    for images, labels in test_loader:
+    #for images, labels in test_loader:
+    for _ in range(1000):
+        images, labels = next(test_iterator)
         images, labels = images.to(device), labels.to(device)
         output = model(images)
         loss = criterion(output, labels)
@@ -251,7 +265,7 @@ cnn.apply(weight_init_normal)
 
 criterion = nn.CrossEntropyLoss()
 
-loss, acc = train(cnn, lr, train_loader, valid_loader)
+loss, acc = train(cnn, lr, train_loader)
 test(cnn)
 
 # TODO: data visualisation of train loss and accuracy
