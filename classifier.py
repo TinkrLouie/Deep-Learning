@@ -26,13 +26,7 @@ dim = 32
 n_class = 100
 n_epoch = 50
 lr = 0.01
-
-
-# helper function to make getting another batch of data easier
-def cycle(iterable):
-    while True:
-        for x in iterable:
-            yield x
+valid_size = 0.2
 
 
 def RGBshow(img):
@@ -72,9 +66,7 @@ train_dataset = ds("./datasets", download=True, train=True, transform=transform_
 test_dataset = ds("./datasets", download=True, train=False, transform=transform_test)
 # test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
 
-num_workers = 2
 
-valid_size = 0.2
 train_length = len(train_dataset)
 indices = list(range(len(train_dataset)))
 split = int(np.floor(valid_size * train_length))
@@ -95,9 +87,9 @@ print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-class ConvNet(nn.Module):
+class CNN(nn.Module):
     def __init__(self):
-        super(ConvNet, self).__init__()
+        super(CNN, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
         self.conv3 = nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1)
@@ -136,18 +128,6 @@ def weight_init_normal(m):
         m.bias.data.fill_(0)
 
 
-cnn = ConvNet().to(device)
-# print the number of parameters - this should be included in your report
-print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
-
-if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
-    print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
-
-cnn.apply(weight_init_normal)
-
-criterion = nn.CrossEntropyLoss()
-
-
 def train(model, lr, trainer, validater):
     optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
@@ -157,7 +137,6 @@ def train(model, lr, trainer, validater):
     train_class_correct = list(0. for _ in range(n_class))
     valid_class_correct = list(0. for _ in range(n_class))
     class_total = list(0. for _ in range(n_class))
-    print(len(class_total))
 
     # minimum validation loss ----- set initial minimum to infinity
     valid_loss_min = np.Inf
@@ -165,13 +144,10 @@ def train(model, lr, trainer, validater):
     for epoch in range(n_epoch):
         train_loss = 0.0
         valid_loss = 0.0
-        #train_correct = 0.0
-        #valid_correct = 0.0
 
-        model.train()  # TURN ON DROPOUT for training
+        model.train()
         for images, labels in trainer:
             images, labels = images.to(device), labels.to(device)
-            #print(len(labels))
             optimizer.zero_grad()
             output = model(images)
             loss = criterion(output, labels)
@@ -180,9 +156,7 @@ def train(model, lr, trainer, validater):
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
             train_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
-            for idx in range(batch_size):
-                print(idx)
-                label = labels[idx]
+            for idx, label in enumerate(labels):
                 train_class_correct[label] += train_correct[idx].item()
                 class_total[label] += 1
 
@@ -194,8 +168,8 @@ def train(model, lr, trainer, validater):
             valid_loss += loss.item()
             _, pred = torch.max(output, 1)
             valid_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
-            for idx in range(batch_size):
-                label = labels[idx]
+            for idx, label in enumerate(labels):
+                # for idx in range(batch_size):
                 valid_class_correct[label] += valid_correct[idx].item()
                 class_total[label] += 1
 
@@ -229,9 +203,6 @@ def train(model, lr, trainer, validater):
     return loss_keeper, acc_keeper
 
 
-loss, acc = train(cnn, lr, train_loader, valid_loader)
-
-
 def test(model):
     test_loss = 0
     class_correct = list(0. for _ in range(n_class))
@@ -246,8 +217,7 @@ def test(model):
         _, pred = torch.max(output, 1)
         correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
 
-        for idx in range(batch_size):
-            label = labels[idx]
+        for idx, label in enumerate(labels):
             class_correct[label] += correct[idx].item()
             class_total[label] += 1
 
@@ -265,3 +235,18 @@ def test(model):
 
     print(
         f"\nOverall Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}% where {int(np.sum(class_correct))} of {int(np.sum(class_total))} were predicted correctly")
+
+
+cnn = CNN().to(device)
+# print the number of parameters - this should be included in your report
+print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
+
+if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
+    print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
+
+cnn.apply(weight_init_normal)
+
+criterion = nn.CrossEntropyLoss()
+
+loss, acc = train(cnn, lr, train_loader, valid_loader)
+test(cnn)
