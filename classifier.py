@@ -24,7 +24,7 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 50
+n_epoch = 12
 lr = 0.01
 valid_size = 0.2
 
@@ -140,8 +140,10 @@ def train(model, lr, trainer, validater):
 
     # minimum validation loss ----- set initial minimum to infinity
     valid_loss_min = np.Inf
-
+    step = 0
     for epoch in range(n_epoch):
+        if epoch == n_epoch - 1:
+            print(step)
         train_loss = 0.0
         valid_loss = 0.0
 
@@ -159,6 +161,7 @@ def train(model, lr, trainer, validater):
             for idx, label in enumerate(labels):
                 train_class_correct[label] += train_correct[idx].item()
                 class_total[label] += 1
+            step += 1
 
         model.eval()
         for images, labels in validater:
@@ -226,7 +229,7 @@ def test(model):
     print(f"Test Loss: {test_loss}")
     print(f"Correctly predicted per class : {class_correct}, Total correctly perdicted : {sum(class_correct)}")
     print(f"Total Predictions per class : {class_total}, Total predictions to be made : {sum(class_total)}\n")
-    for i in range(10):
+    for i in range(100):
         if class_total[i] > 0:
             print(
                 f"Test Accuracy of class {class_names[i]} : {float(100 * class_correct[i] / class_total[i])}% where {int(np.sum(class_correct[i]))} of {int(np.sum(class_total[i]))} were predicted correctly")
@@ -250,3 +253,9 @@ criterion = nn.CrossEntropyLoss()
 
 loss, acc = train(cnn, lr, train_loader, valid_loader)
 test(cnn)
+
+# TODO: data visualisation of train loss and accuracy
+# TODO: reference existing code
+# TODO: a plot of the training and test accuracy over the length of your training
+# TODO: the total number of parameters in your network
+# TODO: the final values for training loss, training accuracy and test accuracy (means and standard deviations)
