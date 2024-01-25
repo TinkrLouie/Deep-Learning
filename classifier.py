@@ -153,8 +153,8 @@ def train(model, lr):
     #valid_loss_min = np.Inf
     step = 0
     for epoch in range(n_epoch):
-        if step >= 10000:
-            break
+        #if step >= 10000:
+        #    break
         train_loss = 0.0
         #valid_loss = 0.0
 
