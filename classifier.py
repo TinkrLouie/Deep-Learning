@@ -92,7 +92,7 @@ def cycle(iterable):
 #test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
 train_iterator = iter(cycle(train_loader))
 #valid_iterator = iter(cycle(valid_loader))
-test_iterator = iter(cycle(test_loader))
+
 
 print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
@@ -153,6 +153,8 @@ def train(model, lr):
     #valid_loss_min = np.Inf
     step = 0
     for epoch in range(n_epoch):
+        if step >= 10000:
+            break
         train_loss = 0.0
         #valid_loss = 0.0
 
@@ -225,8 +227,8 @@ def test(model):
 
     model.eval()  # test the model with dropout layers off
     #for images, labels in test_loader:
-    for _ in range(1000):
-        images, labels = next(test_iterator)
+    for images, labels in test_loader:
+
         images, labels = images.to(device), labels.to(device)
         output = model(images)
         loss = criterion(output, labels)
