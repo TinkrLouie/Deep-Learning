@@ -32,11 +32,11 @@ torch.manual_seed(SEED)
 
 # hyperparameters
 params = {
-    'batch_size': 128,
+    'batch_size': 64,
     'nc': 3,
     'n_latent': 32,
     'lr': 0.0002,
-    'n_epochs': 50,
+    'n_epochs': 5,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
@@ -317,8 +317,8 @@ if __name__ == '__main__':
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
     col_size = int(np.sqrt(params['batch_size']))
 
-    z0 = sample_noise[0:col_size].repeat(col_size, 1)  # z for top row
-    z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1)  # z for bottom row
+    z0 = sample_noise[0:col_size].repeat(1, col_size, 1, 1)  # z for top row
+    z1 = sample_noise[params['batch_size'] - col_size:].repeat(1, col_size, 1, 1)  # z for bottom row
 
     t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
 
