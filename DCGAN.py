@@ -11,7 +11,7 @@ import random
 from torchvision.datasets import CIFAR100
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
-from torch.optim import AdamW
+from torch.optim import Adam, AdamW
 import torchvision.utils as vutils
 
 
@@ -33,7 +33,7 @@ torch.manual_seed(SEED)
 
 # hyperparameters
 params = {
-    'batch_size': 64,
+    'batch_size': 128,
     'nc': 3,
     'n_latent': 32,
     'lr': 0.002,
@@ -72,7 +72,7 @@ class Generator(nn.Module):
             nn.BatchNorm2d(ngf),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf, nc, 3, 2, 1, bias=False),
-            nn.Tanh(),
+            nn.Tanh(),  # Signmoid as alternative
         )
 
     def forward(self, i):
@@ -102,6 +102,7 @@ class Discriminator(nn.Module):
         return self.main(i)
 
 
+# Weight function
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find("Conv") != -1:
@@ -166,8 +167,8 @@ if __name__ == '__main__':
     fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
 
     # Initialise optimiser
-    optimizerD = AdamW(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
-    optimizerG = AdamW(netG.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
+    optimizerD = Adam(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
+    optimizerG = Adam(netG.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
 
     # Check how many parameters in total between 2 models
     total_params = len(torch.nn.utils.parameters_to_vector(netG.parameters())) + len(
@@ -200,12 +201,12 @@ if __name__ == '__main__':
 
             # Train with real images
             netD.zero_grad()
-            real_cpu = data.to(device)
-            b_size = real_cpu.size(0)
+            data = data.to(device)
+            b_size = data.size(0)
             # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
             label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
             # Forward pass
-            output = netD(real_cpu).view(-1)
+            output = netD(data).view(-1)
             # Loss of real images
             errD_real = criterion(output, label)
             # Gradients
@@ -244,7 +245,7 @@ if __name__ == '__main__':
             optimizerG.step()
 
             # Output training stats
-            if (iters + 1) % 500 == 0:
+            if (iters + 1) % 1000 == 0:
                 print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
                       % (epoch + 1, params['n_epochs'], errD.item(), errG.item()))
 
@@ -260,11 +261,26 @@ if __name__ == '__main__':
 
             iters += 1
 
-    print(iters)
     # Sampling from latent space and save 10000 samples to dir
     with torch.no_grad():
         sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
         fake = netG(sample_noise).detach().cpu()
+
+    # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
+    col_size = int(np.sqrt(params['batch_size']))
+
+    z0 = sample_noise[0:col_size].repeat(col_size, 1)  # z for top row
+    z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1)  # z for bottom row
+
+    t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
+
+    lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
+    with torch.no_grad():
+        lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
+
+    plt.rcParams['figure.dpi'] = 100
+    plt.grid(False)
+    plt.savefig(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
 
     # setup_directory(real_images_dir)
     setup_directory(generated_images_dir)
