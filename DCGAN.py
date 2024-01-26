@@ -278,11 +278,13 @@ if __name__ == '__main__':
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
+    plt.figure(figsize=(10, 5))
+    plt.title('Interpolation')
     plt.rcParams['figure.dpi'] = 100
     plt.grid(False)
-    plt.savefig(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
+    plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
+    plt.savefig('Interpolation')
 
-    # setup_directory(real_images_dir)
     setup_directory(generated_images_dir)
 
     for n, image in enumerate(fake):
