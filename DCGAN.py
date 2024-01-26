@@ -332,6 +332,7 @@ if __name__ == '__main__':
             s0 = np.sin(theta_0 - theta_t) / sin_theta_0
             s1 = sin_theta_t / sin_theta_0
             v2 = s0 * v0 + s1 * v1
+            print(type(v2))
 
         return torch.from_numpy(v2).to(device)
 
