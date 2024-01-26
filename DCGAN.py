@@ -21,7 +21,7 @@ store_path = "dcgan_model.pt"
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
-        for _, x in (iterable, 0):
+        for x in iterable:
             yield x
 
 
@@ -194,14 +194,13 @@ if __name__ == '__main__':
     for epoch in range(params['n_epochs']):
         for i in range(1000):
             data, _ = next(train_iterator)
-
             #---------------------------
             # Update Discriminator Model
             #---------------------------
 
             # Train with real images
             netD.zero_grad()
-            real_cpu = data[0].to(device)
+            real_cpu = data.to(device)
             b_size = real_cpu.size(0)
             # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
             label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
