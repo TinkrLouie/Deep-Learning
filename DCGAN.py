@@ -319,9 +319,6 @@ if __name__ == '__main__':
     # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
     def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
 
-        v0 = v0.numpy()
-        v1 = v1.numpy()
-
         dot = np.sum(v0 * v1 / (np.linalg.norm(v0) * np.linalg.norm(v1)))
         if np.abs(dot) > DOT_THRESHOLD:
             v2 = (1 - t) * v0 + t * v1
@@ -334,12 +331,12 @@ if __name__ == '__main__':
             s1 = sin_theta_t / sin_theta_0
             v2 = s0 * v0 + s1 * v1
 
-        return torch.from_numpy(v2)
+        return torch.from_numpy(v2).to(device)
 
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
-    sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
+    sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1)
     col_size = int(np.sqrt(params['batch_size']))
 
     z0 = sample_noise[0:col_size]  # .repeat(col_size, 1, 1, 1)  # z for top row
@@ -348,7 +345,7 @@ if __name__ == '__main__':
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
     #lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    lerp_z = slerp(torch.linspace(0, 1, col_size).to(device), z0, z1)
+    lerp_z = slerp(torch.linspace(0, 1, col_size), z0, z1)
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
