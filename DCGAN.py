@@ -36,7 +36,7 @@ params = {
     'batch_size': 128,
     'nc': 3,
     'n_latent': 32,
-    'lr': 0.002,
+    'lr': 0.0002,
     'n_epochs': 50,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -278,6 +278,7 @@ if __name__ == '__main__':
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
+    print(f'Discriminator statistics: mean = {np.average(D_losses)}, stdev = {np.std(D_losses)},')
     plt.figure(figsize=(10, 5))
     plt.title('Interpolation')
     plt.rcParams['figure.dpi'] = 100
