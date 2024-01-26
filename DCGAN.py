@@ -315,6 +315,16 @@ if __name__ == '__main__':
     #with torch.no_grad():
     #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     #    fake = netG(sample_noise).detach().cpu()
+
+    def slerp(start, end, val=0.5):
+        a = start / torch.norm(start)
+        b = end / torch.norm(end)
+        omega = torch.acos(torch.clamp(torch.mm(a, b.t()), -1, 1))
+        so = torch.sin(omega)
+        if so == 0:
+            return (1.0 - val) * start + val * end  # L'Hopital's rule / LERP
+        return torch.sin((1.0 - val) * omega) / so * start + torch.sin(val * omega) / so * end
+
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
@@ -322,13 +332,12 @@ if __name__ == '__main__':
     col_size = int(np.sqrt(params['batch_size']))
 
     z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
-    print(z0.shape)
-    print(sample_noise[0:col_size].shape)
     z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
 
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
-    t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
-    lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
+    #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
+    #lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
+    lerp_z = slerp(z0, z1)
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
