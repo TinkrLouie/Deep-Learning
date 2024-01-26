@@ -316,14 +316,14 @@ if __name__ == '__main__':
     #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     #    fake = netG(sample_noise).detach().cpu()
 
-    def slerp(start, end, val=0.5):
-        a = start / torch.norm(start)
-        b = end / torch.norm(end)
-        omega = torch.acos(torch.clamp(torch.mm(a, b.t()), -1, 1))
+    def slerp(low, high, val=0.5):
+        low_norm = low / torch.norm(low, dim=1, keepdim=True)
+        high_norm = high / torch.norm(high, dim=1, keepdim=True)
+        omega = torch.acos((low_norm * high_norm).sum(1))
         so = torch.sin(omega)
-        if so == 0:
-            return (1.0 - val) * start + val * end  # L'Hopital's rule / LERP
-        return torch.sin((1.0 - val) * omega) / so * start + torch.sin(val * omega) / so * end
+        res = (torch.sin((1.0 - val) * omega) / so).unsqueeze(1) * low + (torch.sin(val * omega) / so).unsqueeze(
+            1) * high
+        return res
 
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
