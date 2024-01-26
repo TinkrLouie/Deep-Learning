@@ -316,14 +316,31 @@ if __name__ == '__main__':
     #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     #    fake = netG(sample_noise).detach().cpu()
 
-    def slerp(low, high, val=0.5):
-        low_norm = low / torch.norm(low, dim=1, keepdim=True)
-        high_norm = high / torch.norm(high, dim=1, keepdim=True)
-        omega = torch.acos((low_norm * high_norm).sum(1))
-        so = torch.sin(omega)
-        res = (torch.sin((1.0 - val) * omega) / so).unsqueeze(1) * low + (torch.sin(val * omega) / so).unsqueeze(
-            1) * high
-        return res
+    # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
+    def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
+
+        if not isinstance(v0, np.ndarray):
+            inputs_are_torch = True
+
+            v0 = v0.cpu().numpy()
+            v1 = v1.cpu().numpy()
+
+        dot = np.sum(v0 * v1 / (np.linalg.norm(v0) * np.linalg.norm(v1)))
+        if np.abs(dot) > DOT_THRESHOLD:
+            v2 = (1 - t) * v0 + t * v1
+        else:
+            theta_0 = np.arccos(dot)
+            sin_theta_0 = np.sin(theta_0)
+            theta_t = theta_0 * t
+            sin_theta_t = np.sin(theta_t)
+            s0 = np.sin(theta_0 - theta_t) / sin_theta_0
+            s1 = sin_theta_t / sin_theta_0
+            v2 = s0 * v0 + s1 * v1
+
+        if inputs_are_torch:
+            v2 = torch.from_numpy(v2).to(device)
+
+        return v2
 
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
@@ -331,13 +348,13 @@ if __name__ == '__main__':
     sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     col_size = int(np.sqrt(params['batch_size']))
 
-    z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
-    z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
+    z0 = sample_noise[0:col_size]  # .repeat(col_size, 1, 1, 1)  # z for top row
+    z1 = sample_noise[params['batch_size'] - col_size:]  # .repeat(col_size, 1, 1, 1)  # z for bottom row
 
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
     #lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    lerp_z = slerp(z0, z1)
+    lerp_z = slerp(torch.linspace(0, 1, col_size), z0, z1)
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
