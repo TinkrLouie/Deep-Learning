@@ -21,7 +21,7 @@ store_path = "dcgan_model.pt"
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
-        for x in iterable:
+        for _, x in (iterable, 0):
             yield x
 
 
