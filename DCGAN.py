@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
     # Loss functin
     criterion = nn.BCELoss().to(device)
-    fixed_noise = torch.randn(params['batch_size'], params['nz'], 32, 32).to(device)
+    fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
 
     # Initialise optimiser
     optimizerD = Adam(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
@@ -259,7 +259,7 @@ if __name__ == '__main__':
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
-            noise = torch.randn(b_size, params['nz'], 32, 32, device=device)
+            noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
             fake = netG(noise)
             # One-sided label smoothing where fake labels are filled with 0
             label.fill_(params['fake_label'])
@@ -311,7 +311,7 @@ if __name__ == '__main__':
 
     # Sampling from latent space and save 10000 samples to dir
     with torch.no_grad():
-        sample_noise = torch.randn(n_samples, params['nz'], 32, 32).to(device)
+        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
         fake = netG(sample_noise).detach().cpu()
     # TODO: 1,1 as dim for noise
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
