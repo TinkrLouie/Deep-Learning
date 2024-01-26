@@ -319,8 +319,8 @@ if __name__ == '__main__':
     # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
     def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
 
-        v0 = v0.cpu().numpy()
-        v1 = v1.cpu().numpy()
+        #v0 = v0.cpu().numpy()
+        #v1 = v1.cpu().numpy()
 
         dot = np.sum(v0 * v1 / (np.linalg.norm(v0) * np.linalg.norm(v1)))
         if np.abs(dot) > DOT_THRESHOLD:
