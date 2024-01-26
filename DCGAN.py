@@ -310,11 +310,12 @@ if __name__ == '__main__':
             iters += 1
 
     # Sampling from latent space and save 10000 samples to dir
-    with torch.no_grad():
-        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
-        fake = netG(sample_noise).detach().cpu()
+    #with torch.no_grad():
+    #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+    #    fake = netG(sample_noise).detach().cpu()
     # TODO: 1,1 as dim for noise
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
+    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     col_size = int(np.sqrt(params['batch_size']))
 
     z0 = sample_noise[0:col_size].repeat(1, col_size, 1, 1)  # z for top row
