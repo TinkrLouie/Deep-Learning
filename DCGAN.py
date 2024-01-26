@@ -14,7 +14,6 @@ from torchvision.transforms import Compose, ToTensor
 from torch.optim import Adam, AdamW
 import torchvision.utils as vutils
 
-
 store_path = "dcgan_model.pt"
 
 
@@ -112,6 +111,53 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
+# Reference: https://github.com/Lornatang/WassersteinGAN_GP-PyTorch/tree/master
+# def gradient_penalty(model, real_images, fake_images):
+#    """Calculates the gradient penalty loss for WGAN GP"""
+#    # Random weight term for interpolation between real and fake data
+#    alpha = torch.randn((real_images.size(0), 1, 1, 1), device=device)
+#    # Get random interpolation between real and fake data
+#    interpolates = (alpha * real_images + ((1 - alpha) * fake_images)).requires_grad_(True)
+#
+#    model_interpolates = model(interpolates)
+#    grad_outputs = torch.ones(model_interpolates.size(), device=device, requires_grad=False)
+#
+#    # Get gradient w.r.t. interpolates
+#    gradients = torch.autograd.grad(
+#        outputs=model_interpolates,
+#        inputs=interpolates,
+#        grad_outputs=grad_outputs,
+#        create_graph=True,
+#        retain_graph=True,
+#        only_inputs=True,
+#    )[0]
+#    gradients = gradients.view(gradients.size(0), -1)
+#    gradient_penalty = torch.mean((gradients.norm(2, dim=1) - 1) ** 2)
+#    return gradient_penalty
+
+
+# Reference: https://www.kaggle.com/code/varnez/wgan-gp-cifar10-dogs-with-pytorch
+def gradient_penalty(D, real_data, fake_data, gp_lambda=10):
+    alpha = torch.FloatTensor(params['batch_size'], 3, 33, 33).uniform_(-1, 1)
+    #alpha = alpha.expand(params['batch_size'], fake_data.size(1), fake_data.size(2), fake_data.size(3))
+    alpha = alpha.contiguous().view(params['batch_size'], 3, 33, 33)
+    real_data = real_data.expand(params['batch_size'], real_data.size(1), fake_data.size(2), fake_data.size(3))
+    interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
+    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
+
+    critic_interpolates = D(interpolates)
+
+    grad_outputs = torch.ones(critic_interpolates.size()).to(device)
+
+    gradients = torch.autograd.grad(outputs=critic_interpolates, inputs=interpolates,
+                                    grad_outputs=grad_outputs, create_graph=True,
+                                    retain_graph=True, only_inputs=True)[0]
+
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * gp_lambda
+
+    return gradient_penalty
+
+
 # nc = params['nc']
 # nz = params['nz']
 # ngf = params['ngf']
@@ -164,7 +210,7 @@ if __name__ == '__main__':
 
     # Loss functin
     criterion = nn.BCELoss().to(device)
-    fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
+    fixed_noise = torch.randn(params['batch_size'], params['nz'], 32, 32).to(device)
 
     # Initialise optimiser
     optimizerD = Adam(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
@@ -176,7 +222,6 @@ if __name__ == '__main__':
     print(f'> Number of model parameters {total_params}')
     if total_params > 1000000:
         print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
-
 
     # Lists to keep track of progress
     img_list = []
@@ -195,9 +240,9 @@ if __name__ == '__main__':
     for epoch in range(params['n_epochs']):
         for i in range(1000):
             data, _ = next(train_iterator)
-            #---------------------------
+            # ---------------------------
             # Update Discriminator Model
-            #---------------------------
+            # ---------------------------
 
             # Train with real images
             netD.zero_grad()
@@ -210,11 +255,11 @@ if __name__ == '__main__':
             # Loss of real images
             errD_real = criterion(output, label)
             # Gradients
-            errD_real.backward()
+            # errD_real.backward()
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
-            noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
+            noise = torch.randn(b_size, params['nz'], 32, 32, device=device)
             fake = netG(noise)
             # One-sided label smoothing where fake labels are filled with 0
             label.fill_(params['fake_label'])
@@ -223,15 +268,18 @@ if __name__ == '__main__':
             # Discriminator's loss on the fake images
             errD_fake = criterion(output, label)
             # Gradients for backward pass
-            errD_fake.backward()
+            # errD_fake.backward()
+            # TODO: GP function fix
+            #gp = gradient_penalty(netD, data, fake.detach())
             # Compute sum error of Discriminator
-            errD = errD_real + errD_fake
+            errD = errD_real + errD_fake #+ 0.2 * gp
+            errD.backward()
             # Update Discriminator
             optimizerD.step()
 
-            #-----------------------
+            # -----------------------
             # Update Generator Model
-            #-----------------------
+            # -----------------------
 
             netG.zero_grad()
             label.fill_(params['real_label'])  # fake labels are real for generator cost
@@ -263,9 +311,9 @@ if __name__ == '__main__':
 
     # Sampling from latent space and save 10000 samples to dir
     with torch.no_grad():
-        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+        sample_noise = torch.randn(n_samples, params['nz'], 32, 32).to(device)
         fake = netG(sample_noise).detach().cpu()
-
+    # TODO: 1,1 as dim for noise
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
     col_size = int(np.sqrt(params['batch_size']))
 
