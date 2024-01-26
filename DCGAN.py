@@ -334,7 +334,7 @@ if __name__ == '__main__':
             v2 = s0 * v0 + s1 * v1
             print(type(v2))
 
-        return torch.from_numpy(v2).to(device)
+        return v2.to(device)
 
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
