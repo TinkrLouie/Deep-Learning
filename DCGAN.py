@@ -349,6 +349,7 @@ if __name__ == '__main__':
     plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
     plt.savefig('Interpolation')
 
+    exit()
     setup_directory(generated_images_dir)
 
     for n, image in enumerate(fake):
