@@ -16,7 +16,7 @@ import torchvision.utils as vutils
 
 store_path = "dcgan_model.pt"
 
-
+torch.autograd.set_detect_anomaly(True)
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
@@ -36,7 +36,7 @@ params = {
     'nc': 3,
     'n_latent': 32,
     'lr': 0.0002,
-    'n_epochs': 5,
+    'n_epochs': 1,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
@@ -141,7 +141,7 @@ def gradient_penalty(D, real_data, fake_data, gp_lambda=10):
     alpha = torch.FloatTensor(params['batch_size'], 3, 33, 33).uniform_(-1, 1)
     #alpha = alpha.expand(params['batch_size'], fake_data.size(1), fake_data.size(2), fake_data.size(3))
     alpha = alpha.contiguous().view(params['batch_size'], 3, 33, 33)
-    real_data = real_data.expand(params['batch_size'], real_data.size(1), fake_data.size(2), fake_data.size(3))
+    real_data = real_data.view(params['batch_size'], 3, 33, 33)
     interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
     interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
 
@@ -229,6 +229,8 @@ if __name__ == '__main__':
     D_losses = []
     iters = 0
 
+    one = torch.tensor(1, dtype=torch.float).to(device)
+    mone = (one * -1).to(device)
     # Directory names for image storage
     n_samples = 10000
     real_images_dir = 'real_images'
@@ -255,7 +257,7 @@ if __name__ == '__main__':
             # Loss of real images
             errD_real = criterion(output, label)
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -268,15 +270,15 @@ if __name__ == '__main__':
             # Discriminator's loss on the fake images
             errD_fake = criterion(output, label)
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
             # TODO: GP function fix
             #gp = gradient_penalty(netD, data, fake.detach())
+            #gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_real + errD_fake #+ 0.2 * gp
-            #errD.backward()
+            errD = errD_real + errD_fake
+            # errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
-
             # -----------------------
             # Update Generator Model
             # -----------------------
@@ -314,15 +316,16 @@ if __name__ == '__main__':
     #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     #    fake = netG(sample_noise).detach().cpu()
     # TODO: 1,1 as dim for noise
+    # TODO: Interpolation on 8 pairs of images
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
     sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
     col_size = int(np.sqrt(params['batch_size']))
 
-    z0 = sample_noise[0:col_size].repeat(1, col_size, 1, 1)  # z for top row
-    z1 = sample_noise[params['batch_size'] - col_size:].repeat(1, col_size, 1, 1)  # z for bottom row
+    z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
+    z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
 
-    t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
-
+    #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
+    t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
     lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
