@@ -322,6 +322,8 @@ if __name__ == '__main__':
     col_size = int(np.sqrt(params['batch_size']))
 
     z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
+    print(z0.shape)
+    print(sample_noise[0:col_size].shape)
     z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
 
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
