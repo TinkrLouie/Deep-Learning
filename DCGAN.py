@@ -319,8 +319,8 @@ if __name__ == '__main__':
     # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
     def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
 
-        #v0 = v0.cpu().numpy()
-        #v1 = v1.cpu().numpy()
+        v0 = v0.cpu().numpy()
+        v1 = v1.cpu().numpy()
 
         dot = np.sum(v0 * v1 / (np.linalg.norm(v0) * np.linalg.norm(v1)))
         if np.abs(dot) > DOT_THRESHOLD:
@@ -333,9 +333,6 @@ if __name__ == '__main__':
             s0 = np.sin(theta_0 - theta_t) / sin_theta_0
             s1 = sin_theta_t / sin_theta_0
             v2 = s0 * v0 + s1 * v1
-
-        #if inputs_are_torch:
-        #    v2 = torch.from_numpy(v2).to(device)
 
         return v2
 
@@ -351,9 +348,9 @@ if __name__ == '__main__':
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1).to(device)
     #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
     #lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    lerp_z = slerp(torch.linspace(0, 1, col_size).to(device), z0, z1)
+    lerp_z = slerp(torch.linspace(0, 1, col_size), z0, z1)
     with torch.no_grad():
-        lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
+        lerp_g = netG(lerp_z.to(device))  # sample the model at the resulting interpolated latents
 
     print(f'Discriminator statistics: mean = {np.average(D_losses)}, stdev = {np.std(D_losses)},')
     plt.figure(figsize=(10, 5))
