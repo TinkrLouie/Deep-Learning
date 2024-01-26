@@ -255,7 +255,7 @@ if __name__ == '__main__':
             # Loss of real images
             errD_real = criterion(output, label)
             # Gradients
-            # errD_real.backward()
+            errD_real.backward()
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -268,12 +268,12 @@ if __name__ == '__main__':
             # Discriminator's loss on the fake images
             errD_fake = criterion(output, label)
             # Gradients for backward pass
-            # errD_fake.backward()
+            errD_fake.backward()
             # TODO: GP function fix
             #gp = gradient_penalty(netD, data, fake.detach())
             # Compute sum error of Discriminator
             errD = errD_real + errD_fake #+ 0.2 * gp
-            errD.backward()
+            #errD.backward()
             # Update Discriminator
             optimizerD.step()
 
