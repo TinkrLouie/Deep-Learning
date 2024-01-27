@@ -358,7 +358,7 @@ if __name__ == '__main__':
 
             # Train with real images
             netD.zero_grad()
-            data = data.to(device)
+            data = data[0].to(device)
             b_size = data.size(0)
             # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
             label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
