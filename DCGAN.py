@@ -16,7 +16,7 @@ import torchvision.utils as vutils
 
 store_path = "dcgan_model.pt"
 
-torch.autograd.set_detect_anomaly(True)
+
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
@@ -36,7 +36,7 @@ params = {
     'nc': 3,
     'n_latent': 32,
     'lr': 0.0002,
-    'n_epochs': 1,
+    'n_epochs': 50,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
