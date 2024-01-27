@@ -36,7 +36,7 @@ params = {
     'nc': 3,
     'n_latent': 32,
     'lr': 0.0002,
-    'n_epochs': 50,
+    'steps': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
@@ -127,7 +127,6 @@ class Generator(nn.Module):
         # Self Attention Layer 1
         self.sa1 = SelfAttention(ngf)
 
-
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
             nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
@@ -164,7 +163,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
 
         self.nc = nc  # n channels
-        self. ndf = ndf  # n features
+        self.ndf = ndf  # n features
 
         # Input Layer => [N, 64, 17, 17]
         self.input = nn.Sequential(
@@ -247,7 +246,7 @@ def weights_init(m):
 # Reference: https://www.kaggle.com/code/varnez/wgan-gp-cifar10-dogs-with-pytorch
 def gradient_penalty(D, real_data, fake_data, gp_lambda=10):
     alpha = torch.FloatTensor(params['batch_size'], 3, 33, 33).uniform_(-1, 1)
-    #alpha = alpha.expand(params['batch_size'], fake_data.size(1), fake_data.size(2), fake_data.size(3))
+    # alpha = alpha.expand(params['batch_size'], fake_data.size(1), fake_data.size(2), fake_data.size(3))
     alpha = alpha.contiguous().view(params['batch_size'], 3, 33, 33)
     real_data = real_data.view(params['batch_size'], 3, 33, 33)
     interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
@@ -266,18 +265,6 @@ def gradient_penalty(D, real_data, fake_data, gp_lambda=10):
     return gradient_penalty
 
 
-# nc = params['nc']
-# nz = params['nz']
-# ngf = params['ngf']
-# ndf = params['ndf']
-# lr = params['lr']
-# beta1 = params['beta1']
-# n_epochs = params['n_epochs']
-# batch_size = params['batch_size']
-# image_size = params['dim']
-# real_label = params['real_label']
-# fake_label = params['fake_label']
-
 # create/clean the directories
 def setup_directory(directory):
     if os.path.exists(directory):
@@ -286,7 +273,9 @@ def setup_directory(directory):
 
 
 if __name__ == '__main__':
+    #---------------------------------------------------------------------------------------
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
+    #---------------------------------------------------------------------------------------
     transform = Compose([
         # torchvision.transforms.Resize(40),
         # torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
@@ -310,17 +299,26 @@ if __name__ == '__main__':
     print(f'Size of training dataset: {len(train_loader.dataset)}')
     print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
+
+    #------------------------------------
     # Initialise Models and apply weights
+    #------------------------------------
     netG = Generator(params['nc'], params['nz'], params['ngf']).to(device)
     netG.apply(weights_init)
     netD = Discriminator(params['nc'], params['ndf']).to(device)
     netD.apply(weights_init)
 
-    # Loss functin
+
+    #--------------
+    # Loss function
+    #--------------
     criterion = nn.BCELoss().to(device)
     fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
 
+
+    #---------------------
     # Initialise optimiser
+    #---------------------
     optimizerD = Adam(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
     optimizerG = Adam(netG.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
 
@@ -330,6 +328,7 @@ if __name__ == '__main__':
     print(f'> Number of model parameters {total_params}')
     if total_params > 1000000:
         print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
+
 
     # Lists to keep track of progress
     img_list = []
@@ -346,10 +345,13 @@ if __name__ == '__main__':
 
     print("Training:")
 
+    #---------
     # Training
-    for epoch in range(params['n_epochs']):
-        for i in range(1000):
-            data, _ = next(train_iterator)
+    #---------
+    while iters < params['steps']:
+        for i, data in enumerate(train_loader, 0):
+            # for i in range(1000):
+            # data, _ = next(train_iterator)
             # ---------------------------
             # Update Discriminator Model
             # ---------------------------
@@ -364,7 +366,7 @@ if __name__ == '__main__':
             output = netD(data).view(-1)
             # Loss of real images
             errD_real = criterion(output, label)
-            #errD_real = output.mean()
+            # errD_real = output.mean()
             # Gradients
             errD_real.backward()
 
@@ -379,18 +381,17 @@ if __name__ == '__main__':
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
             errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
+            # errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward()
             # TODO: GP function fix
-            #gp = gradient_penalty(netD, data, fake.detach())
-            #gp.backward()
+            # gp = gradient_penalty(netD, data, fake.detach())
+            # gp.backward()
             # Compute sum error of Discriminator
             errD = errD_real + errD_fake
             # errD = errD_fake + errD_real + gp
             # Update Discriminator
             optimizerD.step()
-
 
             # -----------------------
             # Update Generator Model
@@ -402,35 +403,44 @@ if __name__ == '__main__':
             output = netD(fake).view(-1)
             # G's loss based on this output
             errG = criterion(output, label)
-            #errG = output.mean()
+            # errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
             # Update Generator
             optimizerG.step()
 
             # Output training stats
-            if (iters + 1) % 1000 == 0:
+            if iters % 1000 == 0:
                 print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
-                      % (epoch + 1, params['n_epochs'], errD.item(), errG.item()))
+                      % (iters, params['iters'], errD.item(), errG.item()))
 
             # Save Losses for plotting
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
             # Sample for visualisation
-            if (epoch + 1 == params['n_epochs']) and (i == len(train_loader) - 1):
+            if (iters == params['steps'] - 2) and (i == len(train_loader) - 1):
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
-            iters += 1
+            iters += 2
 
+
+    #---------------------------------------------------------
     # Sampling from latent space and save 10000 samples to dir
-    #with torch.no_grad():
-    #    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
-    #    fake = netG(sample_noise).detach().cpu()
+    #---------------------------------------------------------
+    with torch.no_grad():
+        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+        fake = netG(sample_noise).detach().cpu()
+
+    setup_directory(generated_images_dir)
+
+    for n, image in enumerate(fake):
+        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
 
     # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
+    # TODO: Finish SLERP Interpolation
     def slerp(t, v0, v1, DOT_THRESHOLD=0.9995):
         v0 = v0.numpy()
         v1 = v1.numpy()
@@ -446,13 +456,13 @@ if __name__ == '__main__':
             s0 = np.sin(theta_0 - theta_t) / sin_theta_0
             s1 = sin_theta_t / sin_theta_0
             v2 = s0 * v0 + s1 * v1
-            print(type(v2))
 
         return v2.to(device)
 
-    # TODO: 1,1 as dim for noise
-    # TODO: Interpolation on 8 pairs of images
-    # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
+
+    #---------------------
+    # Linear Interpolation
+    #---------------------
     sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
     col_size = int(np.sqrt(params['batch_size']))
 
@@ -460,9 +470,7 @@ if __name__ == '__main__':
     z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
 
     t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1, 1, 1).to(device)
-    #t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).unsqueeze(-1).unsqueeze(-1).to(device)
     lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    #lerp_z = slerp(torch.linspace(0, 1, col_size), z0, z1)
     with torch.no_grad():
         lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
@@ -474,13 +482,10 @@ if __name__ == '__main__':
     plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
     plt.savefig('interpolation.png')
 
-    exit()
-    setup_directory(generated_images_dir)
 
-    for n, image in enumerate(fake):
-        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
-
+    #------------------------------
     # Plot figures using matplotlib
+    #------------------------------
     plt.figure(figsize=(10, 5))
     plt.title("Generator and Discriminator Loss During Training")
     plt.plot(G_losses, label="G")
@@ -496,6 +501,9 @@ if __name__ == '__main__':
     plt.imshow(np.transpose(img_list[-1], (1, 2, 0)))
     plt.savefig('gen_img.png')
 
+
+    #------------
     # compute FID
+    #------------
     score = fid.compute_fid(real_images_dir, generated_images_dir, mode="clean")
     print(f"FID score: {score}")
