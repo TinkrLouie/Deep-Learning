@@ -247,10 +247,11 @@ def weights_init(m):
 
 
 # Reference: https://www.kaggle.com/code/varnez/wgan-gp-cifar10-dogs-with-pytorch
-def gradient_penalty(D, real_data, synth_data, batch_size=64, gp_lambda=10):
-    alpha = torch.FloatTensor(batch_size, 1, 1, 1).uniform_(0, 1)
-    alpha = alpha.expand(batch_size, 3, 32, 32)
-    alpha = alpha.contiguous().view(batch_size, 3, 32, 32).to(device)
+def gradient_penalty(D, real_data, synth_data, gp_lambda=10):
+    size = real_data.size(0)
+    alpha = torch.FloatTensor(size, 1, 1, 1).uniform_(0, 1)
+    alpha = alpha.expand(size, 3, 32, 32)
+    alpha = alpha.contiguous().view(size, 3, 32, 32).to(device)
 
     interpolates = (alpha * real_data + ((1 - alpha) * synth_data)).to(device)
     interpolates = autograd.Variable(interpolates, requires_grad=True)
