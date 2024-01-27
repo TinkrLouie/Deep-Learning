@@ -290,7 +290,7 @@ if __name__ == '__main__':
             # G's loss based on this output
             errG = criterion(output, label)
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
