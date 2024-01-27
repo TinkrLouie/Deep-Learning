@@ -211,7 +211,7 @@ def train(model, lr):
         #if valid_loss <= valid_loss_min:
         #    print(f"Validation loss decreased from : {valid_loss_min} ----> {valid_loss} ----> Saving Model.......")
         #    z = type(model).__name__
-        #    torch.save(model.state_dict(), z + '_model.pth')
+        #    torch.save(model.state_dict(), z + '_model.pt')
         #    valid_loss_min = valid_loss
 
         #print(f"Training Accuracy : {train_acc}\tValidation Accuracy : {valid_acc}\n\n")
