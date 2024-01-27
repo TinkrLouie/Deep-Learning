@@ -50,55 +50,163 @@ params = {
     'store_path': 'dcgan_model.pt'  # Store path for trained weights of model
 }
 
+# Getting device ie. CPU or GPU
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
+
+
+# Helper functions to calculate shape of Tconv and conv output
+def calculate_Tconv_output_size(input_size, padding, kernel_size, stride, output_padding=0, dilation=1):
+    output = (input_size - 1) * stride - 2 * padding + dilation * (kernel_size - 1) + output_padding + 1
+
+    return output
+
+
+def calculate_conv_output_size(input_size, padding, kernel_size, stride, dilation=1):
+    output = ((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) / stride) + 1
+
+    return output
+
+
+# TODO: Add Spectral Norm
+# TODO: Self-attention Layers
+
+# Reference: https://github.com/tcapelle/Diffusion-Models-pytorch/tree/main
+class SelfAttention(nn.Module):
+    def __init__(self, channels):
+        super(SelfAttention, self).__init__()
+        self.channels = channels
+        self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
+        self.ln = nn.LayerNorm([channels])
+        self.ff_self = nn.Sequential(
+            nn.LayerNorm([channels]),
+            nn.Linear(channels, channels),
+            nn.GELU(),
+            nn.Linear(channels, channels),
+        )
+
+    def forward(self, x):
+        size = x.shape[-1]
+        x = x.view(-1, self.channels, size * size).swapaxes(1, 2)
+        x_ln = self.ln(x)
+        attention_value, _ = self.mha(x_ln, x_ln, x_ln)
+        attention_value = attention_value + x
+        attention_value = self.ff_self(attention_value) + attention_value
+        return attention_value.swapaxes(2, 1).view(-1, self.channels, size, size)
 
 
 class Generator(nn.Module):
     def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
-        self.main = nn.Sequential(
+
+        self.nc = nc  # n channels
+        self.nz = nz  # n latents
+        self.ngf = ngf  # n features
+
+        # Input Layer => [N, 128, 3, 3]
+        self.input = nn.Sequential(
             nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf, nc, 3, 2, 1, bias=False),
-            nn.Tanh(),  # Signmoid as alternative
+            nn.ReLU(True)
         )
 
-    def forward(self, i):
-        return self.main(i)
+        # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
+        self.tconv1 = nn.Sequential(
+            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True)
+        )
+
+        # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
+        self.tconv2 = nn.Sequential(
+            nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True)
+        )
+
+        # Self Attention Layer 1
+        self.sa1 = SelfAttention(ngf)
+
+
+        # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
+        self.tconv3 = nn.Sequential(
+            nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
+            nn.ReLU(True)
+        )
+
+        # Self Attention Layer 2
+        self.sa2 = SelfAttention(ngf)
+
+        # Output Layer => [N, 3, 32, 32]
+        self.output = nn.Sequential(
+            nn.ConvTranspose2d(ngf, nc, 4, 2, 2, bias=False),
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        x = self.input(x)
+
+        x = self.tconv1(x)
+
+        x = self.tconv2(x)
+        x = self.sa1(x)
+
+        x = self.tconv3(x)
+        x = self.sa2(x)
+
+        output = self.output(x)
+        return output
 
 
 class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
-        self.main = nn.Sequential(
+
+        self.nc = nc  # n channels
+        self. ndf = ndf  # n features
+
+        # Input Layer => [N, 64, 17, 17]
+        self.input = nn.Sequential(
             nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
-            nn.Sigmoid(),
+            nn.BatchNorm2d(ndf),
+            nn.LeakyReLU(0.2, inplace=True)
         )
 
-    def forward(self, i):
-        return self.main(i)
+        # Hidden Convolutional Layer 1 => [N, 128, 9, 9]
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # Hidden Convolutional Layer 3 => [N, 128, 3, 3]
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(ndf * 4, ndf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+
+        # Output Layer => [N, 128, 3, 3]
+        self.output = nn.Sequential(
+            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        x = self.input(x)
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = self.conv3(x)
+        output = self.output(x)
+        return output
 
 
 # Weight function
@@ -264,6 +372,7 @@ if __name__ == '__main__':
             # Generate latent vectors with batch size indicated in params
             noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
             fake = netG(noise)
+
             # One-sided label smoothing where fake labels are filled with 0
             label.fill_(params['fake_label'])
             # Classify fake images with Discriminator
@@ -281,6 +390,8 @@ if __name__ == '__main__':
             # errD = errD_fake + errD_real + gp
             # Update Discriminator
             optimizerD.step()
+
+
             # -----------------------
             # Update Generator Model
             # -----------------------
