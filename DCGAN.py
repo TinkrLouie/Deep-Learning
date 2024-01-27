@@ -256,9 +256,9 @@ if __name__ == '__main__':
             output = netD(data).view(-1)
             # Loss of real images
             #errD_real = criterion(output, label)
-            errD_real = -output.mean()
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -272,7 +272,7 @@ if __name__ == '__main__':
             #errD_fake = criterion(output, label)
             errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
             # TODO: GP function fix
             #gp = gradient_penalty(netD, data, fake.detach())
             #gp.backward()
