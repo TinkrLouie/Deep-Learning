@@ -412,7 +412,7 @@ if __name__ == '__main__':
             # Output training stats
             if iters % 1000 == 0:
                 print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
-                      % (iters, params['iters'], errD.item(), errG.item()))
+                      % (iters, params['steps'], errD.item(), errG.item()))
 
             # Save Losses for plotting
             G_losses.append(errG.item())
