@@ -388,6 +388,7 @@ if __name__ == '__main__':
             # Gradients for backward pass
             #errD_fake.backward()
             # TODO: GP function fix
+            print(data.shape, fake.detach().shape)
             if data.size(0) != fake.detach().size(0):
                 print('yoink')
             gp = gradient_penalty(netD, data, fake.detach())
