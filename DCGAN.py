@@ -2,6 +2,7 @@ import os
 import shutil
 from cleanfid import fid
 import torch
+from torch import autograd
 import torch.nn as nn
 import torchvision
 from matplotlib import pyplot as plt
@@ -15,6 +16,8 @@ from torch.optim import Adam, AdamW
 import torchvision.utils as vutils
 
 store_path = "dcgan_model.pt"
+
+torch.autograd.set_detect_anomaly(True)
 
 
 # helper function to make getting another batch of data easier
@@ -244,21 +247,21 @@ def weights_init(m):
 
 
 # Reference: https://www.kaggle.com/code/varnez/wgan-gp-cifar10-dogs-with-pytorch
-def gradient_penalty(D, real_data, fake_data, gp_lambda=10):
-    alpha = torch.FloatTensor(params['batch_size'], 3, 33, 33).uniform_(-1, 1)
-    # alpha = alpha.expand(params['batch_size'], fake_data.size(1), fake_data.size(2), fake_data.size(3))
-    alpha = alpha.contiguous().view(params['batch_size'], 3, 33, 33)
-    real_data = real_data.view(params['batch_size'], 3, 33, 33)
-    interpolates = (alpha * real_data + ((1 - alpha) * fake_data)).to(device)
-    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
+def gradient_penalty(D, real_data, synth_data, batch_size=64, gp_lambda=10):
+    alpha = torch.FloatTensor(batch_size, 1, 1, 1).uniform_(0, 1)
+    alpha = alpha.expand(batch_size, 3, 32, 32)
+    alpha = alpha.contiguous().view(batch_size, 3, 32, 32).to(device)
+
+    interpolates = (alpha * real_data + ((1 - alpha) * synth_data)).to(device)
+    interpolates = autograd.Variable(interpolates, requires_grad=True)
 
     critic_interpolates = D(interpolates)
 
     grad_outputs = torch.ones(critic_interpolates.size()).to(device)
 
-    gradients = torch.autograd.grad(outputs=critic_interpolates, inputs=interpolates,
-                                    grad_outputs=grad_outputs, create_graph=True,
-                                    retain_graph=True, only_inputs=True)[0]
+    gradients = autograd.grad(outputs=critic_interpolates, inputs=interpolates,
+                              grad_outputs=grad_outputs, create_graph=True,
+                              retain_graph=True, only_inputs=True)[0]
 
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * gp_lambda
 
@@ -365,10 +368,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
-            # errD_real = output.mean()
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            #errD_real.backward()
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -380,16 +383,16 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
-            # errD_fake = output.mean()
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            #errD_fake.backward()
             # TODO: GP function fix
-            # gp = gradient_penalty(netD, data, fake.detach())
-            # gp.backward()
+            gp = gradient_penalty(netD, data, fake.detach())
             # Compute sum error of Discriminator
-            errD = errD_real + errD_fake
-            # errD = errD_fake + errD_real + gp
+            errD = errD_fake - errD_real + gp
+            errD.backward()
+            # errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -402,10 +405,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
-            # errG = output.mean()
+            #errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
@@ -430,14 +433,17 @@ if __name__ == '__main__':
     #---------------------------------------------------------
     # Sampling from latent space and save 10000 samples to dir
     #---------------------------------------------------------
-    with torch.no_grad():
-        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
-        fake = netG(sample_noise).detach().cpu()
-
     setup_directory(generated_images_dir)
+    n = 0
+    for i in range(10):
+        with torch.no_grad():
+            sample_noise = torch.randn(1000, params['nz'], 1, 1).to(device)
+            fake = netG(sample_noise).detach().cpu()
 
-    for n, image in enumerate(fake):
-        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
+        for image in fake:
+            save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
+            n += 1
+
 
     # Reference: https://dev.to/ramgendeploy/exploiting-latent-vectors-in-stable-diffusion-interpolation-and-parameters-tuning-j3d
     # TODO: Finish SLERP Interpolation
