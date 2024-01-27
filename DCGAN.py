@@ -339,7 +339,7 @@ if __name__ == '__main__':
     # TODO: 1,1 as dim for noise
     # TODO: Interpolation on 8 pairs of images
     # now show some interpolations (note you do not have to do linear interpolations as shown here, you can do non-linear or gradient-based interpolation if you wish)
-    sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1)
+    sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
     col_size = int(np.sqrt(params['batch_size']))
 
     z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
