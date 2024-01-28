@@ -97,165 +97,50 @@ class SelfAttention(nn.Module):
 
 
 class Generator(nn.Module):
-    def __init__(self, nc, nz, ngf, sn=False):
+    def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
-
-        self.nc = nc  # n channels
-        self.nz = nz  # n latents
-        self.ngf = ngf  # n features
-
-        if sn:
-            # Input Layer => [N, 128, 3, 3]
-            self.input = nn.Sequential(
-                spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
-            self.tconv1 = nn.Sequential(
-                spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
-            self.tconv2 = nn.Sequential(
-                spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
-            self.tconv3 = nn.Sequential(
-                spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ngf),
-                nn.ReLU(True)
-            )
-
-        else:
-            # Input Layer => [N, 128, 3, 3]
-            self.input = nn.Sequential(
-                nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
-            self.tconv1 = nn.Sequential(
-                nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
-            self.tconv2 = nn.Sequential(
-                nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ngf * 2),
-                nn.ReLU(True)
-            )
-
-            # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
-            self.tconv3 = nn.Sequential(
-                nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ngf),
-                nn.ReLU(True)
-            )
-
-        # Output Layer => [N, 3, 32, 32]
-        self.output = nn.Sequential(
-            nn.ConvTranspose2d(ngf, nc, 4, 2, 2, bias=False),
-            nn.Tanh()
+        self.main = nn.Sequential(
+            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ngf * 2, nc, 3, 2, 1, bias=False),
+            nn.Tanh(),
         )
 
-    def forward(self, x):
-        x = self.input(x)
-        x = self.tconv1(x)
-        x = self.tconv2(x)
-        x = self.tconv3(x)
-        output = self.output(x)
-        return output
+    def forward(self, i):
+        return self.main(i)
 
 
 class Discriminator(nn.Module):
-    def __init__(self, nc, ndf, sn=False):
+    def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
-
-        self.nc = nc  # n channels
-        self.ndf = ndf  # n features
-
-        if sn:
-            # Input Layer => [N, 64, 17, 17]
-            self.input = nn.Sequential(
-                spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
-                nn.BatchNorm2d(ndf),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 1 => [N, 128, 9, 9]
-            self.conv1 = nn.Sequential(
-                spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ndf * 2),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
-            self.conv2 = nn.Sequential(
-                spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ndf * 2),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 3 => [N, 256, 3, 3]
-            self.conv3 = nn.Sequential(
-                spectral_norm(nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False)),
-                nn.BatchNorm2d(ndf * 4),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-        else:
-            # Input Layer => [N, 64, 17, 17]
-            self.input = nn.Sequential(
-                nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 1 => [N, 128, 9, 9]
-            self.conv1 = nn.Sequential(
-                nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf * 2),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
-            self.conv2 = nn.Sequential(
-                nn.Conv2d(ndf * 2, ndf * 3, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf * 3),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-            # Hidden Convolutional Layer 3 => [N, 256, 3, 3]
-            self.conv3 = nn.Sequential(
-                nn.Conv2d(ndf * 3, ndf * 2, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf * 2),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
-
-        # Output Layer => [N, 1, 1, 1]
-        self.output = nn.Sequential(
+        self.main = nn.Sequential(
+            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
-    def forward(self, x):
-        x = self.input(x)
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        output = self.output(x)
-
-        return output
+    def forward(self, i):
+        return self.main(i)
 
 
 # Weight function
@@ -378,6 +263,7 @@ if __name__ == '__main__':
     # ---------
     while iters < params['steps']:
         for i, data in enumerate(train_loader, 0):
+            # TODO: Implement CGAN
             # ---------------------------
             # Update Discriminator Model
             # ---------------------------
