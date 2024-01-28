@@ -23,13 +23,11 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 10
 step = 10000
 lr = 0.01
 valid_size = 0.2
 best_acc = 0  # best test accuracy
 start_epoch = 0  # start from epoch 0 or last checkpoint epoch
-step = 0
 
 
 def RGBshow(img):
