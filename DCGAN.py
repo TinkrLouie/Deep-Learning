@@ -69,7 +69,7 @@ def calculate_conv_output_size(input_size, padding, kernel_size, stride, dilatio
     return output
 
 
-# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101 | SN for D = 103 => Removed
+# TODO: Add Spectral Norm (Done) ->  Results : SN for both G&D = 101 | SN for D = 103 | 107 w/ GP
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 # Reference: https://github.com/tcapelle/Diffusion-Models-pytorch/tree/main
@@ -279,7 +279,8 @@ if __name__ == '__main__':
     # --------------
     # Loss function
     # --------------
-    criterion = nn.BCELoss().to(device)
+    bce = nn.BCELoss().to(device)
+    mse = nn.MSELoss().to(device)
     fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
 
     # ---------------------
@@ -330,8 +331,8 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            #errD_real = criterion(output, label)
-            errD_real = output.mean()
+            errD_real = mse(output, label)
+            #errD_real = output.mean()
             # Gradients
             errD_real.backward(mone)
 
@@ -345,12 +346,12 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            #errD_fake = criterion(output, label)
-            errD_fake = output.mean()
+            errD_fake = bce(output, label)
+            #errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward(one)
 
-            # TODO: GP function (Done) -> Results = FID = 115 => Removed
+            # TODO: GP function (Done) -> Results = FID = 115 | 107 w/ SN
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
@@ -368,8 +369,8 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            #errG = criterion(output, label)
-            errG = output.mean()
+            errG = mse(output, label)
+            #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward(mone)
             # Update Generator
