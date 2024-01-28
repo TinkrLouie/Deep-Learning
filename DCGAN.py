@@ -382,7 +382,7 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = -criterion(output, label)
+            errG = criterion(output, label)
             #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
