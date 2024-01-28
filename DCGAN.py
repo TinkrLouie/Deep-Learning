@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 from torch.optim import Adam
 import torchvision.utils as vutils
-from torch.nn.utils import spectral_norm
+from torch.nn.utils.parametrizations import spectral_norm
 
 # Setting reproducibility
 SEED = 0
@@ -49,16 +49,16 @@ class Generator(nn.Module):
     def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
         self.main = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
+            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
@@ -157,8 +157,6 @@ if __name__ == '__main__':
 
     while iters < params['step']:
         for i, data in enumerate(train_loader, 0):
-            if iters % 1000 == 0:
-                print("Step: ", iters + 1)
             ############################
             # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
             ###########################
@@ -208,9 +206,9 @@ if __name__ == '__main__':
             optimizerG.step()
 
             # Output training stats
-            if i == 0:
+            if iters % 1000 == 0:
                 print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
-                      % (iters + 1, params['step'], i, len(train_loader),
+                      % (iters, params['step'], i, len(train_loader),
                          errD.item(), errG.item()))
 
             # Save Losses for plotting later
