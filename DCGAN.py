@@ -230,21 +230,21 @@ class Discriminator(nn.Module):
 
             # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
             self.conv2 = nn.Sequential(
-                nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf * 2),
+                nn.Conv2d(ndf * 2, ndf * 3, 3, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 3),
                 nn.LeakyReLU(0.2, inplace=True)
             )
 
             # Hidden Convolutional Layer 3 => [N, 256, 3, 3]
             self.conv3 = nn.Sequential(
-                nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False),
-                nn.BatchNorm2d(ndf * 4),
+                nn.Conv2d(ndf * 3, ndf * 2, 3, 2, 1, bias=False),
+                nn.BatchNorm2d(ndf * 2),
                 nn.LeakyReLU(0.2, inplace=True)
             )
 
         # Output Layer => [N, 1, 1, 1]
         self.output = nn.Sequential(
-            nn.Conv2d(ndf * 4, 1, 3, 1, 0, bias=False),
+            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
             nn.Sigmoid()
         )
 
@@ -340,8 +340,7 @@ if __name__ == '__main__':
     # Loss function
     # --------------
     bce = nn.BCELoss().to(device)
-    mse = nn.MSELoss().to(device)
-    fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
+
 
     # ---------------------
     # Initialise optimiser
@@ -386,12 +385,12 @@ if __name__ == '__main__':
             netD.zero_grad()
             data = data[0].to(device)
             b_size = data.size(0)
-            # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
-            label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
+            real = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
+            fake = torch.full((b_size,), params['fake_label'], dtype=torch.float, device=device)
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = mse(output, label)
+            errD_real = bce(output, real)
             #errD_real = output.mean()
             # Gradients
             errD_real.backward()
@@ -401,12 +400,10 @@ if __name__ == '__main__':
             noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
             fake = netG(noise)
 
-            # One-sided label smoothing where fake labels are filled with 0
-            label.fill_(params['fake_label'])
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = bce(output, label)
+            errD_fake = bce(output, fake)
             #errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward()
@@ -425,11 +422,10 @@ if __name__ == '__main__':
             # -----------------------
 
             netG.zero_grad()
-            label.fill_(params['real_label'])  # fake labels are real for generator cost
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = mse(output, label)
+            errG = bce(output, real)
             #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
@@ -447,6 +443,7 @@ if __name__ == '__main__':
 
             # Sample for visualisation
             if iters == params['steps'] - 1:
+                fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
