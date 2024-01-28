@@ -28,24 +28,23 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'n_latent': 32,
     'lr': 0.002,
     'step': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
-    'min_beta': 1e-4,
-    'max_beta': 0.02,
     'beta1': 0.5,  # Hyperparameter for Adam
     'dim': 32,  # Image Size
     'ngf': 64,  # Size of feature maps for Generator
     'ndf': 64,  # Size of feature maps for Discriminator
-    'num_workers': 2,
     'store_path': 'gan_model.pt'  # Store path for trained weights of model
 }
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
+
+# TODO: Add Spectral Norm (Done) ->  Results : SN for both G&D = 87 | SN for D = ?
+# TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 
 class Generator(nn.Module):
@@ -139,7 +138,9 @@ def setup_directory(directory):
 
 
 if __name__ == '__main__':
+    # ---------------------------------------------------------------------------------------
     # Loading the data (converting each image into a tensor and normalizing between [-1, 1])
+    # ---------------------------------------------------------------------------------------
     transform = Compose([
         # torchvision.transforms.Resize(40),
         # torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
@@ -148,20 +149,36 @@ if __name__ == '__main__':
     ])
 
     ds = CIFAR100
+
+    # Create train batch loader
     train_dataset = ds("./datasets", download=True, train=True, transform=transform)
     train_loader = DataLoader(train_dataset, params['batch_size'], shuffle=True)
 
+    # Create test batch loader
     test_dataset = ds("./datasets", download=True, train=False, transform=transform)
     test_loader = DataLoader(test_dataset, params['batch_size'], shuffle=True)
 
     print(f'Size of training dataset: {len(train_loader.dataset)}')
     print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
+    # ------------------------------------
+    # Initialise Models and apply weights
+    # ------------------------------------
     netG = Generator(params['nc'], params['nz'], params['ngf']).to(device)
     netG.apply(weights_init)
     netD = Discriminator(params['nc'], params['ndf']).to(device)
     netD.apply(weights_init)
+
+
+    # --------------
+    # Loss function
+    # --------------
     criterion = nn.BCELoss().to(device)
+
+
+    # ---------------------
+    # Initialise optimiser
+    # ---------------------
     fixed_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
     optimizerD = Adam(netD.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
     optimizerG = Adam(netG.parameters(), lr=params['lr'], betas=(params['beta1'], 0.999))
@@ -183,56 +200,72 @@ if __name__ == '__main__':
     real_images_dir = 'real_images'
     generated_images_dir = 'generated_images'
 
+    # Scalar tensor for loss scaling in WGAN-GP
+    one = torch.tensor(1, dtype=torch.float).to(device)
+    mone = (one * -1).to(device)
+
+
     print("Training:")
 
     while iters < params['step']:
         for i, data in enumerate(train_loader, 0):
-            ############################
-            # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
-            ###########################
-            ## Train with all-real batch
-            netD.zero_grad()
-            # Format batch
-            real_cpu = data[0].to(device)
-            b_size = real_cpu.size(0)
-            label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
-            # Forward pass real batch through D
-            output = netD(real_cpu).view(-1)
-            # Calculate loss on all-real batch
-            errD_real = criterion(output, label)
-            # Calculate gradients for D in backward pass
-            errD_real.backward()
-            D_x = output.mean().item()
+            # TODO: Implement CGAN
+            # ---------------------------
+            # Update Discriminator Model
+            # ---------------------------
 
-            ## Train with all-fake batch
-            # Generate batch of latent vectors
+            # Train with real images
+            netD.zero_grad()
+            data = data[0].to(device)
+            b_size = data.size(0)
+            # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
+            label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
+            # Forward pass
+            output = netD(data).view(-1)
+            # Loss of real images
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
+            # Gradients
+            errD_real.backward(mone)
+
+            # Train with fake images
+            # Generate latent vectors with batch size indicated in params
             noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
-            # Generate fake image batch with G
             fake = netG(noise)
+
+            # One-sided label smoothing where fake labels are filled with 0
             label.fill_(params['fake_label'])
-            # Classify all fake batch with D
+            # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
-            # Calculate D's loss on the all-fake batch
-            errD_fake = criterion(output, label)
-            # Calculate the gradients for this batch, accumulated (summed) with previous gradients
+            # Discriminator's loss on the fake images
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
+            # Gradients for backward pass
             errD_fake.backward()
-            # Compute error of D as sum over the fake and the real batches
-            errD = errD_real + errD_fake
-            # Update D
+
+            # TODO: GP function (Done) -> Results = FID = ?
+            # gp = gradient_penalty(netD, data, fake.detach())
+            # gp.backward()
+            # Compute sum error of Discriminator
+            errD = errD_fake + errD_real
+            # errD = errD_fake - errD_real + gp
+            # Update Discriminator
             optimizerD.step()
 
-            ############################
-            # (2) Update G network: maximize log(D(G(z)))
-            ###########################
+            # -----------------------
+            # Update Generator Model
+            # -----------------------
+
             netG.zero_grad()
             label.fill_(params['real_label'])  # fake labels are real for generator cost
-            # Since we just updated D, perform another forward pass of all-fake batch through D
+            # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
-            # Calculate G's loss based on this output
-            errG = criterion(output, label)
-            # Calculate gradients for G
-            errG.backward()
-            # Update G
+            # G's loss based on this output
+            #errG = criterion(output, label)
+            errG = output.mean()
+            # Calculate gradients for Generator
+            errG.backward(mone)
+            # Update Generator
             optimizerG.step()
 
             # Output training stats
