@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor
 from torch.optim import Adam
 import torchvision.utils as vutils
+from torch.nn.utils import spectral_norm
 
 # Setting reproducibility
 SEED = 0
@@ -26,7 +27,7 @@ params = {
     'nc': 3,
     'n_latent': 32,
     'lr': 0.002,
-    'n_epochs': 60,
+    'step': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
@@ -48,16 +49,16 @@ class Generator(nn.Module):
     def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
+            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
@@ -72,15 +73,15 @@ class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
@@ -154,10 +155,10 @@ if __name__ == '__main__':
 
     print("Training:")
 
-    for epoch in range(params['n_epochs']):
+    while iters < params['step']:
         for i, data in enumerate(train_loader, 0):
             if iters % 1000 == 0:
-                print("Step: ", iters)
+                print("Step: ", iters + 1)
             ############################
             # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
             ###########################
@@ -187,7 +188,6 @@ if __name__ == '__main__':
             errD_fake = criterion(output, label)
             # Calculate the gradients for this batch, accumulated (summed) with previous gradients
             errD_fake.backward()
-            D_G_z1 = output.mean().item()
             # Compute error of D as sum over the fake and the real batches
             errD = errD_real + errD_fake
             # Update D
@@ -204,33 +204,31 @@ if __name__ == '__main__':
             errG = criterion(output, label)
             # Calculate gradients for G
             errG.backward()
-            D_G_z2 = output.mean().item()
             # Update G
             optimizerG.step()
 
             # Output training stats
             if i == 0:
-                print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
-                      % (epoch, params['n_epochs'], i, len(train_loader),
-                         errD.item(), errG.item(), D_x, D_G_z1, D_G_z2))
+                print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
+                      % (iters + 1, params['step'], i, len(train_loader),
+                         errD.item(), errG.item()))
 
             # Save Losses for plotting later
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
             # Check how the generator is doing by saving G's output on fixed_noise
-            if (iters % 500 == 0) or ((epoch == params['n_epochs'] - 1) and (i == len(train_loader) - 1)):
+            if (iters % 500 == 0) or ((iters == params['step'] - 1) and (i == len(train_loader) - 1)):
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
             # Sample from Generator
-            if epoch == params['n_epochs'] - 1 and i == len(train_loader) - 1:
+            if iters == params['step'] - 1 and i == len(train_loader) - 1:
                 with torch.no_grad():
                     sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
                     fake = netG(sample_noise).detach().cpu()
 
-                # setup_directory(real_images_dir)
                 setup_directory(generated_images_dir)
 
                 for n, image in enumerate(fake):
