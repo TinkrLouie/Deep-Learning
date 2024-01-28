@@ -158,16 +158,16 @@ class DLA(nn.Module):
         )
 
         self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 16, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(32),
             nn.ReLU(True)
         )
 
-        self.layer3 = Tree(block, 16, 16, level=1, stride=1)
-        self.layer4 = Tree(block, 16, 16, level=2, stride=2)
-        self.layer5 = Tree(block, 16, 16, level=2, stride=2)
-        self.layer6 = Tree(block, 16, 32, level=1, stride=2)
-        self.linear = nn.Linear(32, num_classes)
+        self.layer3 = Tree(block, 32, 64, level=1, stride=1)
+        self.layer4 = Tree(block, 64, 128, level=2, stride=2)
+        self.layer5 = Tree(block, 128, 256, level=2, stride=2)
+        self.layer6 = Tree(block, 256, 512, level=1, stride=2)
+        self.linear = nn.Linear(512, num_classes)
 
     def forward(self, x):
         out = self.base(x)
@@ -203,6 +203,8 @@ while iters < step:
     total = 0
     net.train()
     for batch_idx, (inputs, targets) in enumerate(train_loader):
+        if iters >= step:
+            break
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
         outputs = net(inputs)
