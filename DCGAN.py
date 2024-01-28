@@ -73,7 +73,7 @@ def calculate_conv_output_size(input_size, padding, kernel_size, stride, dilatio
     return output
 
 
-# TODO: Add Spectral Norm (Done) ->  Results ?
+# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151
 
 # Reference: https://github.com/tcapelle/Diffusion-Models-pytorch/tree/main
@@ -110,21 +110,21 @@ class Generator(nn.Module):
 
         # Input Layer => [N, 128, 3, 3]
         self.input = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
+            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
         self.tconv1 = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
         self.tconv2 = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
@@ -134,7 +134,7 @@ class Generator(nn.Module):
 
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
