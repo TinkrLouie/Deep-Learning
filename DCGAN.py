@@ -457,9 +457,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------------
     setup_directory(generated_images_dir)
     n = 0
+    sample_noise = torch.randn(1000, params['nz'], 1, 1).to(device)
     for i in range(10):
         with torch.no_grad():
-            sample_noise = torch.randn(1000, params['nz'], 1, 1).to(device)
             fake = netG(sample_noise).detach().cpu()
 
         for image in fake:
