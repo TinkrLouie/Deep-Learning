@@ -28,7 +28,7 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.002,
+    'lr': 0.002,  # TODO: lr was 0.0002
     'step': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -225,8 +225,8 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            #errD_real = criterion(output, label)
-            errD_real = output.mean()
+            errD_real = criterion(output, label)
+            #errD_real = output.mean()
             # Gradients
             errD_real.backward(mone)
 
@@ -240,12 +240,12 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            #errD_fake = criterion(output, label)
-            errD_fake = output.mean()
+            errD_fake = criterion(output, label)
+            #errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward(one)
 
-            # TODO: GP function (Done) -> Results = FID = ?
+            # TODO: GP function (Done) -> Results = FID = 444 => Removed
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
@@ -263,8 +263,8 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            #errG = criterion(output, label)
-            errG = output.mean()
+            errG = criterion(output, label)
+            #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward(mone)
             # Update Generator
