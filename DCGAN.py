@@ -243,7 +243,7 @@ if __name__ == '__main__':
             #errD_fake = criterion(output, label)
             errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
 
             # TODO: GP function (Done) -> Results = FID = ?
             # gp = gradient_penalty(netD, data, fake.detach())
