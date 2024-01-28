@@ -73,7 +73,7 @@ def calculate_conv_output_size(input_size, padding, kernel_size, stride, dilatio
     return output
 
 
-# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101
+# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101 | SN for D = 103
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151
 
 # Reference: https://github.com/tcapelle/Diffusion-Models-pytorch/tree/main
@@ -129,18 +129,12 @@ class Generator(nn.Module):
             nn.ReLU(True)
         )
 
-        # Self Attention Layer 1
-        #self.sa1 = SelfAttention(ngf)
-
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
             nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
-
-        # Self Attention Layer 2
-        #self.sa2 = SelfAttention(ngf)
 
         # Output Layer => [N, 3, 32, 32]
         self.output = nn.Sequential(
@@ -150,15 +144,9 @@ class Generator(nn.Module):
 
     def forward(self, x):
         x = self.input(x)
-
         x = self.tconv1(x)
-
         x = self.tconv2(x)
-        #x = self.sa1(x)
-
         x = self.tconv3(x)
-        #x = self.sa2(x)
-
         output = self.output(x)
         return output
 
@@ -172,37 +160,33 @@ class Discriminator(nn.Module):
 
         # Input Layer => [N, 64, 17, 17]
         self.input = nn.Sequential(
-            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
+            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
             nn.BatchNorm2d(ndf),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         # Hidden Convolutional Layer 1 => [N, 128, 9, 9]
         self.conv1 = nn.Sequential(
-            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
         self.conv2 = nn.Sequential(
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
-        #self.sa1 = SelfAttention(ndf * 4)
-
-        # Hidden Convolutional Layer 3 => [N, 128, 3, 3]
+        # Hidden Convolutional Layer 3 => [N, 256, 3, 3]
         self.conv3 = nn.Sequential(
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
-        #self.sa1 = SelfAttention(ndf * 2)
-
-        # Output Layer => [N, 128, 3, 3]
+        # Output Layer => [N, 1, 1, 1]
         self.output = nn.Sequential(
             nn.Conv2d(ndf * 4, 1, 3, 1, 0, bias=False),
             nn.Sigmoid()
@@ -212,10 +196,9 @@ class Discriminator(nn.Module):
         x = self.input(x)
         x = self.conv1(x)
         x = self.conv2(x)
-        #x = self.sa1(x)
         x = self.conv3(x)
-        #x = self.sa2(x)
         output = self.output(x)
+
         return output
 
 
