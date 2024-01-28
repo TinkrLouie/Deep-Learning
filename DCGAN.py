@@ -3,7 +3,6 @@ import shutil
 from cleanfid import fid
 import torch
 import torch.nn as nn
-
 import torchvision
 from matplotlib import pyplot as plt
 from torchvision.utils import save_image
@@ -58,10 +57,10 @@ class Generator(nn.Module):
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf, nc, 3, 2, 1, bias=False),
+            nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
             nn.Tanh(),
         )
 
@@ -157,7 +156,7 @@ if __name__ == '__main__':
 
     for epoch in range(params['n_epochs']):
         for i, data in enumerate(train_loader, 0):
-            if iters % 1000 == 1:
+            if iters % 1000 == 0:
                 print("Step: ", iters)
             ############################
             # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
