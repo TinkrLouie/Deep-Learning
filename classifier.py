@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from matplotlib import pyplot as plt
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize
 import os
 from torchvision.datasets import CIFAR100
@@ -67,19 +67,6 @@ test_dataset = ds("./datasets", download=True, train=False, transform=transform_
 test_loader = DataLoader(test_dataset, batch_size, shuffle=True)
 
 
-#train_length = len(train_dataset)
-#indices = list(range(len(train_dataset)))
-#split = int(np.floor(valid_size * train_length))
-#
-#np.random.shuffle(indices)
-#
-#train_idx = indices[split:]
-#valid_idx = indices[:split]
-#
-#train_sampler = SubsetRandomSampler(train_idx)
-#validation_sampler = SubsetRandomSampler(valid_idx)
-
-
 # helper function to make getting another batch of data easier
 def cycle(iterable):
     while True:
@@ -87,11 +74,7 @@ def cycle(iterable):
             yield x
 
 
-#train_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler)
-#valid_loader = DataLoader(train_dataset, batch_size=batch_size, sampler=validation_sampler)
-#test_loader = DataLoader(test_dataset, shuffle=True, batch_size=batch_size)
 train_iterator = iter(cycle(train_loader))
-#valid_iterator = iter(cycle(valid_loader))
 
 
 print(f'Size of training dataset: {len(train_loader.dataset)}')

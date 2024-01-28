@@ -17,10 +17,6 @@ import torchvision.utils as vutils
 from torch.autograd import Variable
 from torch.nn.utils import spectral_norm
 
-store_path = "dcgan_model.pt"
-
-torch.autograd.set_detect_anomaly(True)
-
 
 # helper function to make getting another batch of data easier
 def cycle(iterable):
@@ -73,8 +69,8 @@ def calculate_conv_output_size(input_size, padding, kernel_size, stride, dilatio
     return output
 
 
-# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101 | SN for D = 103
-# TODO: Add Self-attention Layers (Done) -> Results = FID = 151
+# TODO: Add Spectral Norm (Done) ->  Results ? | SN for both G&D = 101 | SN for D = 103 => Removed
+# TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 # Reference: https://github.com/tcapelle/Diffusion-Models-pytorch/tree/main
 class SelfAttention(nn.Module):
@@ -110,28 +106,28 @@ class Generator(nn.Module):
 
         # Input Layer => [N, 128, 3, 3]
         self.input = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
+            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
         self.tconv1 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
         self.tconv2 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
@@ -160,28 +156,28 @@ class Discriminator(nn.Module):
 
         # Input Layer => [N, 64, 17, 17]
         self.input = nn.Sequential(
-            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         # Hidden Convolutional Layer 1 => [N, 128, 9, 9]
         self.conv1 = nn.Sequential(
-            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         # Hidden Convolutional Layer 2 => [N, 128, 5, 5]
         self.conv2 = nn.Sequential(
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True)
         )
 
         # Hidden Convolutional Layer 3 => [N, 256, 3, 3]
         self.conv3 = nn.Sequential(
-            nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 4, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True)
         )
@@ -305,8 +301,10 @@ if __name__ == '__main__':
     D_losses = []
     iters = 0
 
+    # Scalar tensor for loss scaling in WGAN-GP
     one = torch.tensor(1, dtype=torch.float).to(device)
     mone = (one * -1).to(device)
+
     # Directory names for image storage
     n_samples = 10000
     real_images_dir = 'real_images'
@@ -319,8 +317,6 @@ if __name__ == '__main__':
     # ---------
     while iters < params['steps']:
         for i, data in enumerate(train_loader, 0):
-            # for i in range(1000):
-            # data, _ = next(train_iterator)
             # ---------------------------
             # Update Discriminator Model
             # ---------------------------
@@ -334,10 +330,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
-            #errD_real = output.mean()
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -349,17 +345,17 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
 
-            # TODO: GP function (Done) -> Results = FID = 115
-            #gp = gradient_penalty(netD, data, fake.detach())
-            #gp.backward()
+            # TODO: GP function (Done) -> Results = FID = 115 => Removed
+            gp = gradient_penalty(netD, data, fake.detach())
+            gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_fake + errD_real
-            #errD = errD_fake - errD_real + gp
+            #errD = errD_fake + errD_real
+            errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -372,10 +368,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
-            #errG = output.mean()
+            #errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
@@ -389,12 +385,12 @@ if __name__ == '__main__':
             D_losses.append(errD.item())
 
             # Sample for visualisation
-            if (iters >= params['steps'] - 3) and (i == len(train_loader) - 1):
+            if (iters == params['steps'] - 1) and (i == len(train_loader) - 1):
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
 
-            iters += 2
+            iters += 1
 
     # ---------------------------------------------------------
     # Sampling from latent space and save 10000 samples to dir
