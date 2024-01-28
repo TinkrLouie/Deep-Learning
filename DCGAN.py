@@ -336,6 +336,7 @@ if __name__ == '__main__':
     netD = Discriminator(params['nc'], params['ndf']).to(device)
     netD.apply(weights_init)
 
+
     # --------------
     # Loss function
     # --------------
@@ -385,12 +386,12 @@ if __name__ == '__main__':
             netD.zero_grad()
             data = data[0].to(device)
             b_size = data.size(0)
-            real_label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
-            fake_label = torch.full((b_size,), params['fake_label'], dtype=torch.float, device=device)
+            # Use one-sided label smoothing where real labels are filled with 0.9 instead of 1
+            label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = bce(output, real_label)
+            errD_real = bce(output, label)
             #errD_real = output.mean()
             # Gradients
             errD_real.backward()
@@ -400,10 +401,12 @@ if __name__ == '__main__':
             noise = torch.randn(b_size, params['nz'], 1, 1, device=device)
             fake = netG(noise)
 
+            # One-sided label smoothing where fake labels are filled with 0
+            label.fill_(params['fake_label'])
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = bce(output, fake)
+            errD_fake = bce(output, label)
             #errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward()
@@ -422,10 +425,11 @@ if __name__ == '__main__':
             # -----------------------
 
             netG.zero_grad()
+            label.fill_(params['real_label'])  # fake labels are real for generator cost
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = bce(output, real_label)
+            errG = bce(output, label)
             #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
