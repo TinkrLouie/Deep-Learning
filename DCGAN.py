@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
     while iters < params['step']:
         for i, data in enumerate(train_loader, 0):
-            if iters >= params['steps']:
+            if iters >= params['step']:
                 break
             # TODO: Implement CGAN
             # ---------------------------
