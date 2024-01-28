@@ -116,20 +116,20 @@ class Generator(nn.Module):
 
         # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
         self.tconv1 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, 96, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(96),
+            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
         self.tconv2 = nn.Sequential(
-            nn.ConvTranspose2d(96, ngf, 3, 2, 1, bias=False),
+            nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
 
         # Self Attention Layer 1
-        #self.sa1 = SelfAttention(ngf)
+        self.sa1 = SelfAttention(ngf)
 
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
@@ -139,7 +139,7 @@ class Generator(nn.Module):
         )
 
         # Self Attention Layer 2
-        #self.sa2 = SelfAttention(ngf)
+        self.sa2 = SelfAttention(ngf)
 
         # Output Layer => [N, 3, 32, 32]
         self.output = nn.Sequential(
@@ -153,10 +153,10 @@ class Generator(nn.Module):
         x = self.tconv1(x)
 
         x = self.tconv2(x)
-        #x = self.sa1(x)
+        x = self.sa1(x)
 
         x = self.tconv3(x)
-        #x = self.sa2(x)
+        x = self.sa2(x)
 
         output = self.output(x)
         return output
@@ -222,30 +222,6 @@ def weights_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-# Reference: https://github.com/Lornatang/WassersteinGAN_GP-PyTorch/tree/master
-#def gradient_penalty(model, real, fake):
-#    # Random weight term for interpolation between real and fake data
-#    alpha = torch.randn((real.size(0), 1, 1, 1), device=device)
-#    # Get random interpolation between real and fake data
-#    interpolates = (alpha * real + ((1 - alpha) * fake)).requires_grad_(True)
-#
-#    model_interpolates = model(interpolates)
-#    grad_outputs = torch.ones(model_interpolates.size(), device=device, requires_grad=False)
-#
-#    # Get gradient w.r.t. interpolates
-#    gradients = torch.autograd.grad(
-#        outputs=model_interpolates,
-#        inputs=interpolates,
-#        grad_outputs=grad_outputs,
-#        create_graph=True,
-#        retain_graph=True,
-#        only_inputs=True,
-#    )[0]
-#    gradients = gradients.view(gradients.size(0), -1)
-#    gradient_penalty = torch.mean((gradients.norm(2, dim=1) - 1) ** 2)
-#    return gradient_penalty
-
-
 # Reference: https://github.com/Zeleni9/pytorch-wgan/tree/master
 def gradient_penalty(D, real_images, fake_images, lambda_term=10):
     eta = torch.FloatTensor(real_images.size(0), 1, 1, 1).uniform_(0, 1)
@@ -270,29 +246,6 @@ def gradient_penalty(D, real_images, fake_images, lambda_term=10):
 
     grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambda_term
     return grad_penalty
-
-
-# Reference: https://www.kaggle.com/code/varnez/wgan-gp-cifar10-dogs-with-pytorch
-# def gradient_penalty(D, real_data, synth_data, gp_lambda=10):
-#    size = real_data.size(0)
-#    alpha = torch.FloatTensor(size, 1, 1, 1).uniform_(0, 1)
-#    alpha = alpha.expand(size, 3, 32, 32)
-#    alpha = alpha.contiguous().view(size, 3, 32, 32).to(device)
-#
-#    interpolates = (alpha * real_data + ((1 - alpha) * synth_data)).to(device)
-#    interpolates = autograd.Variable(interpolates, requires_grad=True)
-#
-#    critic_interpolates = D(interpolates)
-#
-#    grad_outputs = torch.ones(critic_interpolates.size()).to(device)
-#
-#    gradients = autograd.grad(outputs=critic_interpolates, inputs=interpolates,
-#                              grad_outputs=grad_outputs, create_graph=True,
-#                              retain_graph=True, only_inputs=True)[0]
-#
-#    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * gp_lambda
-#
-#    return gradient_penalty
 
 
 # create/clean the directories
