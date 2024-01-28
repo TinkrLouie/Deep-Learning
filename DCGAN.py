@@ -75,15 +75,15 @@ class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
+            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
             nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
+            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
@@ -209,6 +209,8 @@ if __name__ == '__main__':
 
     while iters < params['step']:
         for i, data in enumerate(train_loader, 0):
+            if iters >= params['steps']:
+                break
             # TODO: Implement CGAN
             # ---------------------------
             # Update Discriminator Model
@@ -278,24 +280,16 @@ if __name__ == '__main__':
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
-            # Check how the generator is doing by saving G's output on fixed_noise
-            if (iters % 500 == 0) or ((iters == params['step'] - 1) and (i == len(train_loader) - 1)):
-                with torch.no_grad():
-                    fake = netG(fixed_noise).detach().cpu()
-                img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
-
-            # Sample from Generator
-            if iters == params['step'] - 1 and i == len(train_loader) - 1:
-                with torch.no_grad():
-                    sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
-                    fake = netG(sample_noise).detach().cpu()
-
-                setup_directory(generated_images_dir)
-
-                for n, image in enumerate(fake):
-                    save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
-
             iters += 1
+
+    with torch.no_grad():
+        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+        fake = netG(sample_noise).detach().cpu()
+
+    setup_directory(generated_images_dir)
+
+    for n, image in enumerate(fake):
+        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
 
     plt.figure(figsize=(10, 5))
     plt.title("Generator and Discriminator Loss During Training")
@@ -306,10 +300,13 @@ if __name__ == '__main__':
     plt.legend()
     plt.savefig('training_loss.png')
 
+    with torch.no_grad():
+        fake = netG(fixed_noise).detach().cpu()
+
     plt.figure(figsize=(15, 15))
     plt.axis("off")
     plt.title("Fake Images")
-    plt.imshow(np.transpose(img_list[-1], (1, 2, 0)))
+    plt.imshow(np.transpose(vutils.make_grid(fake, padding=2, normalize=True), (1, 2, 0)))
     plt.savefig('gen_img.png')
 
     # compute FID
