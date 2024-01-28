@@ -219,9 +219,7 @@ while iters < step:
             print(iters, '/', step, '\tLoss: %.3f | Acc: %.3f%% (%d/%d)'
                   % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
-
         iters += 1
-
 
     net.eval()
     test_loss = 0
@@ -238,8 +236,9 @@ while iters < step:
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            print(iters, '\tLoss: %.3f | Acc: %.3f%% (%d/%d)'
-                  % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
+            if batch_idx == len(test_loader) - 1:
+                print(iters, '\tLoss: %.3f | Acc: %.3f%% (%d/%d)'
+                      % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
     scheduler.step()
 
