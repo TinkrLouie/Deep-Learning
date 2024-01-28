@@ -14,6 +14,9 @@ from torchvision.transforms import Compose, ToTensor
 from torch.optim import Adam
 import torchvision.utils as vutils
 from torch.nn.utils.parametrizations import spectral_norm
+from torch.autograd import Variable
+from torch import autograd
+
 
 # Setting reproducibility
 SEED = 0
@@ -99,6 +102,33 @@ def weights_init(m):
     elif classname.find("BatchNorm") != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
+
+
+# Gradient Penalty function for WGAN-GP
+# Reference: https://github.com/Zeleni9/pytorch-wgan/tree/master
+def gradient_penalty(D, real_images, fake_images, lambda_term=10):
+    eta = torch.FloatTensor(real_images.size(0), 1, 1, 1).uniform_(0, 1)
+    eta = eta.expand(real_images.size(0), 3, 32, 32).to(device)
+
+    interpolated = (eta * real_images + ((1 - eta) * fake_images)).to(device)
+
+    # define it to calculate gradient
+    interpolated = Variable(interpolated, requires_grad=True)
+
+    # calculate probability of interpolated examples
+    prob_interpolated = D(interpolated)
+
+    # calculate gradients of probabilities with respect to examples
+    gradients = autograd.grad(outputs=prob_interpolated, inputs=interpolated,
+                              grad_outputs=torch.ones(
+                                  prob_interpolated.size()).to(device),
+                              create_graph=True, retain_graph=True)[0]
+
+    # flatten the gradients to it calculates norm batchwise
+    gradients = gradients.view(gradients.size(0), -1)
+
+    grad_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambda_term
+    return grad_penalty
 
 
 # create/clean the directories
