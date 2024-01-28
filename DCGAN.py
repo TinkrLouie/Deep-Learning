@@ -153,10 +153,10 @@ class Generator(nn.Module):
         x = self.tconv1(x)
 
         x = self.tconv2(x)
-        x = self.sa1(x)
+        #x = self.sa1(x)
 
         x = self.tconv3(x)
-        x = self.sa2(x)
+        #x = self.sa2(x)
 
         output = self.output(x)
         return output
@@ -441,7 +441,7 @@ if __name__ == '__main__':
             D_losses.append(errD.item())
 
             # Sample for visualisation
-            if (iters == params['steps'] - 2) and (i == len(train_loader) - 1):
+            if (iters >= params['steps'] - 3) and (i == len(train_loader) - 1):
                 with torch.no_grad():
                     fake = netG(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True))
