@@ -39,7 +39,7 @@ params = {
     'lr': 0.0002,
     'steps': 50000,
     'nz': 100,  # Size of z latent vector
-    'real_label': 1,  # Label smoothing
+    'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
     'min_beta': 1e-4,
     'max_beta': 0.02,
