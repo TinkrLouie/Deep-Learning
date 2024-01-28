@@ -116,20 +116,20 @@ class Generator(nn.Module):
 
         # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
         self.tconv1 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
+            nn.ConvTranspose2d(ngf * 2, 96, 3, 2, 1, bias=False),
+            nn.BatchNorm2d(96),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
         self.tconv2 = nn.Sequential(
-            nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
+            nn.ConvTranspose2d(96, ngf, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
 
         # Self Attention Layer 1
-        self.sa1 = SelfAttention(ngf)
+        #self.sa1 = SelfAttention(ngf)
 
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
@@ -139,7 +139,7 @@ class Generator(nn.Module):
         )
 
         # Self Attention Layer 2
-        self.sa2 = SelfAttention(ngf)
+        #self.sa2 = SelfAttention(ngf)
 
         # Output Layer => [N, 3, 32, 32]
         self.output = nn.Sequential(
@@ -153,10 +153,10 @@ class Generator(nn.Module):
         x = self.tconv1(x)
 
         x = self.tconv2(x)
-        x = self.sa1(x)
+        #x = self.sa1(x)
 
         x = self.tconv3(x)
-        x = self.sa2(x)
+        #x = self.sa2(x)
 
         output = self.output(x)
         return output
