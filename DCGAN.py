@@ -246,11 +246,11 @@ if __name__ == '__main__':
             errD_fake.backward(one)
 
             # TODO: GP function (Done) -> Results = FID = ?
-            # gp = gradient_penalty(netD, data, fake.detach())
-            # gp.backward()
+            gp = gradient_penalty(netD, data, fake.detach())
+            gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_fake + errD_real
-            # errD = errD_fake - errD_real + gp
+            #errD = errD_fake + errD_real
+            errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
