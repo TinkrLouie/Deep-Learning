@@ -116,20 +116,20 @@ class Generator(nn.Module):
 
         # Hidden Transposed Convolution Layer 1 => [N, 128, 5, 5]
         self.tconv1 = nn.Sequential(
-            nn.ConvTranspose2d(ngf * 2, ngf, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf),
+            nn.ConvTranspose2d(ngf * 2, int(ngf * 1.5), 3, 2, 1, bias=False),
+            nn.BatchNorm2d(int(ngf * 1.5)),
             nn.ReLU(True)
         )
 
         # Hidden Transposed Convolution Layer 2 => [N, 128, 9, 9]
         self.tconv2 = nn.Sequential(
-            nn.ConvTranspose2d(ngf, ngf, 3, 2, 1, bias=False),
+            nn.ConvTranspose2d(int(ngf * 1.5), ngf, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf),
             nn.ReLU(True)
         )
 
         # Self Attention Layer 1
-        self.sa1 = SelfAttention(ngf)
+        #self.sa1 = SelfAttention(ngf)
 
         # Hidden Transposed Convolution Layer 3 => [N, 64, 17, 17]
         self.tconv3 = nn.Sequential(
@@ -139,7 +139,7 @@ class Generator(nn.Module):
         )
 
         # Self Attention Layer 2
-        self.sa2 = SelfAttention(ngf)
+        #self.sa2 = SelfAttention(ngf)
 
         # Output Layer => [N, 3, 32, 32]
         self.output = nn.Sequential(
@@ -391,9 +391,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = -criterion(output, label)
+            #errD_real = -criterion(output, label)
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -405,14 +406,16 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
+
             # TODO: GP function fix
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_fake + errD_real + gp
+            errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -425,9 +428,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = -criterion(output, label)
+            #errG = -criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
