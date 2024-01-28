@@ -24,6 +24,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
+step = 10000
 lr = 0.01
 valid_size = 0.2
 best_acc = 0  # best test accuracy
@@ -196,14 +197,13 @@ optimizer = SGD(net.parameters(), lr=lr,
                 momentum=0.9, weight_decay=5e-4)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
+iters = 0
 
-# Training
-def train(epoch):
-    print('\nEpoch: %d' % epoch)
-    net.train()
+while iters < step:
     train_loss = 0
     correct = 0
     total = 0
+    net.train()
     for batch_idx, (inputs, targets) in enumerate(train_loader):
         inputs, targets = inputs.to(device), targets.to(device)
         optimizer.zero_grad()
@@ -217,14 +217,14 @@ def train(epoch):
         total += targets.size(0)
         correct += predicted.eq(targets).sum().item()
 
-        if epoch % 10 == 1 or batch_idx == 0:
-            print(batch_idx, len(train_loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+        if iters % 1000 == 0:
+            print(iters, '/', step, '\tLoss: %.3f | Acc: %.3f%% (%d/%d)'
                   % (train_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
 
-def test(epoch):
-    global best_acc
-    global step
+        iters += 1
+
+
     net.eval()
     test_loss = 0
     correct = 0
@@ -240,11 +240,9 @@ def test(epoch):
             total += targets.size(0)
             correct += predicted.eq(targets).sum().item()
 
-            print(batch_idx, len(test_loader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)'
+            print(iters, '\tLoss: %.3f | Acc: %.3f%% (%d/%d)'
                   % (test_loss / (batch_idx + 1), 100. * correct / total, correct, total))
 
-
-for epoch in range(start_epoch, start_epoch + 200):
-    train(epoch)
-    test(epoch)
     scheduler.step()
+
+print(iters)
