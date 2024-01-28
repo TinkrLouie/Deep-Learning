@@ -385,12 +385,12 @@ if __name__ == '__main__':
             netD.zero_grad()
             data = data[0].to(device)
             b_size = data.size(0)
-            real = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
-            fake = torch.full((b_size,), params['fake_label'], dtype=torch.float, device=device)
+            real_label = torch.full((b_size,), params['real_label'], dtype=torch.float, device=device)
+            fake_label = torch.full((b_size,), params['fake_label'], dtype=torch.float, device=device)
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = bce(output, real)
+            errD_real = bce(output, real_label)
             #errD_real = output.mean()
             # Gradients
             errD_real.backward()
@@ -425,7 +425,7 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = bce(output, real)
+            errG = bce(output, real_label)
             #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
