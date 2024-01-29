@@ -75,19 +75,19 @@ class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
-            nn.Conv2d(nc, ndf, 2, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
-            nn.Sigmoid(),
+            #nn.Sigmoid(),
         )
 
     def forward(self, i):
@@ -225,8 +225,8 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
-            #errD_real = output.mean()
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
             errD_real.backward(mone)
 
@@ -240,12 +240,12 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward(one)
 
-            # TODO: GP function (Done) -> Results = FID = 444 => Removed
+            # TODO: GP function (Done) -> Results = FID = 444
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
@@ -263,8 +263,8 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
-            #errG = output.mean()
+            #errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
             errG.backward(mone)
             # Update Generator
