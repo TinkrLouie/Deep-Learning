@@ -30,9 +30,9 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0006,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
+    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
-    'nz': 128,  # Size of z latent vector
+    'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
     'beta1': 0.5,  # Hyperparameter for Adam
@@ -45,7 +45,7 @@ params = {
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
 
-# TODO: Add Spectral Norm (Done) ->  Results : SN for both G&D = 87 | SN for D = 87
+# TODO: Add Spectral Norm (Done) ->   SN for D only gives better results than SN for G&D
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 
