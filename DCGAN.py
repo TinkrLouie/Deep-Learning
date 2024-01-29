@@ -285,13 +285,40 @@ if __name__ == '__main__':
                 plt.axis("off")
                 plt.title("Fake Images")
                 plt.imshow(np.transpose(vutils.make_grid(img, padding=2, normalize=True), (1, 2, 0)))
-                plt.savefig(f'/training_images/sample_{iters}.png')
+                plt.savefig(f'/{sample_dir}/sample_{iters}.png')
             # Save Losses for plotting later
             G_losses.append(errG.item())
             D_losses.append(errD.item())
 
             iters += 1
 
+    # ---------------------
+    # Linear Interpolation
+    # ---------------------
+    sample_noise = torch.randn(params['batch_size'], params['nz'], 1, 1).to(device)
+    col_size = int(np.sqrt(params['batch_size']))
+
+    z0 = sample_noise[0:col_size].repeat(col_size, 1, 1, 1)  # z for top row
+    z1 = sample_noise[params['batch_size'] - col_size:].repeat(col_size, 1, 1, 1)  # z for bottom row
+
+    t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1, 1, 1).to(
+        device)
+    lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
+    with torch.no_grad():
+        lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
+
+    print(f'Discriminator statistics: mean = {np.average(D_losses)}, stdev = {np.std(D_losses)},')
+    plt.figure(figsize=(10, 5))
+    plt.title('Interpolation')
+    plt.rcParams['figure.dpi'] = 100
+    plt.grid(False)
+    plt.imshow(torchvision.utils.make_grid(lerp_g).cpu().numpy().transpose(1, 2, 0), cmap=plt.cm.binary)
+    plt.savefig('interpolation.png')
+
+
+    # ---------------------------------------------------------
+    # Sampling from latent space and save 10000 samples to dir
+    # ---------------------------------------------------------
     with torch.no_grad():
         sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
         fake = netG(sample_noise).detach().cpu()
@@ -301,6 +328,10 @@ if __name__ == '__main__':
     for n, image in enumerate(fake):
         save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
 
+
+    # ------------------------------
+    # Plot figures using matplotlib
+    # ------------------------------
     plt.figure(figsize=(10, 5))
     plt.title("Generator and Discriminator Loss During Training")
     plt.plot(G_losses, label="G")
