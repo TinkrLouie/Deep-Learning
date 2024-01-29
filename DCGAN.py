@@ -285,7 +285,7 @@ if __name__ == '__main__':
                 plt.axis("off")
                 plt.title("Fake Images")
                 plt.imshow(np.transpose(vutils.make_grid(img, padding=2, normalize=True), (1, 2, 0)))
-                plt.savefig(os.path.join(sample_dir, f'/sample_{iters}.png'))
+                plt.savefig(os.path.join(sample_dir, f'sample_{iters}.png'))
             # Save Losses for plotting later
             G_losses.append(errG.item())
             D_losses.append(errD.item())
