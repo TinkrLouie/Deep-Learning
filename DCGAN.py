@@ -25,11 +25,12 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 # TODO: Tune hyperparameters
+# TODO: LeakyRELU vs RELU, 0.1 vs 0.2
 # hyperparameters
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0005,  # 0.0002 => FID 81.57
+    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -54,16 +55,16 @@ class Generator(nn.Module):
         self.main = nn.Sequential(
             nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
             nn.Tanh(),
         )
@@ -198,6 +199,9 @@ if __name__ == '__main__':
     n_samples = 10000
     real_images_dir = 'real_images'
     generated_images_dir = 'generated_images'
+    sample_dir = 'training_images'
+
+    setup_directory(sample_dir)
 
     # Scalar tensor for loss scaling in WGAN-GP
     one = torch.tensor(1, dtype=torch.float).to(device)
@@ -274,7 +278,14 @@ if __name__ == '__main__':
                 print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
                       % (iters, params['step'], i, len(train_loader),
                          errD.item(), errG.item()))
-
+            if iters % 5000 == 0:
+                with torch.no_grad():
+                    img = netG(fixed_noise).detach().cpu()
+                plt.figure(figsize=(15, 15))
+                plt.axis("off")
+                plt.title("Fake Images")
+                plt.imshow(np.transpose(vutils.make_grid(img, padding=2, normalize=True), (1, 2, 0)))
+                plt.savefig(f'/training_images/sample_{iters}.png')
             # Save Losses for plotting later
             G_losses.append(errG.item())
             D_losses.append(errD.item())
