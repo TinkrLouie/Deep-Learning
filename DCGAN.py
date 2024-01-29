@@ -79,16 +79,16 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
             spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
-            nn.LeakyReLU(0.1, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
             #nn.Sigmoid(),
         )
