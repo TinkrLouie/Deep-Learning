@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torchvision
 from matplotlib import pyplot as plt
+import torch.nn.functional as F
 from torchvision.utils import save_image
 import numpy as np
 import random
@@ -16,7 +17,9 @@ import torchvision.utils as vutils
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.autograd import Variable
 from torch import autograd
+from pytorch_symbolic import Input, SymbolicModel
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Setting reproducibility
 SEED = 0
@@ -49,52 +52,87 @@ print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 
-class Generator(nn.Module):
-    def __init__(self, nc, nz, ngf):
-        super(Generator, self).__init__()
-        self.main = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-            nn.BatchNorm2d(ngf * 2),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
-            nn.Tanh(),
-        )
+def Generator():
+    inputs = x = Input(batch_shape=(params['batch_size'], params['nz'], 1, 1))
 
-    def forward(self, i):
-        return self.main(i)
+    x = nn.ConvTranspose2d(params['nz'], params['ngf'] * 2, 3, 1, 0, bias=False)(x)
+    x = nn.BatchNorm2d(params['ngf'] * 2)(x)(nn.ReLU())
+
+    for _ in range(3):
+        x = nn.ConvTranspose2d(params['ngf'] * 2, params['ngf'] * 2, 3, 2, 1, bias=False)(x)
+        x = nn.BatchNorm2d(params['ngf'] * 2)(x)(nn.ReLU())
+
+    output = nn.ConvTranspose2d(params['ngf'] * 2, params['nc'], 4, 2, 2, bias=False)(x, custom_name='generator')(
+        nn.Tanh())
+
+    return SymbolicModel(inputs, output)
+
+
+def Discriminator():
+    inputs = x = Input(batch_shape=(params['batch_size'], params['nc'], params['dim'], params['dim']))
+
+    x = spectral_norm(nn.Conv2d(params['nc'], params['ndf'], 2, 2, 1, bias=False))(x)
+    x = nn.BatchNorm2d(params['ndf'])(x)(nn.LeakyReLU(0.1))
+
+    x = spectral_norm(nn.Conv2d(params['ndf'], params['ndf'] * 2, 3, 2, 1, bias=False))(x)
+    x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(0.1))
+
+    for _ in range(2):
+        x = spectral_norm(nn.Conv2d(params['ndf'] * 2, params['ndf'] * 2, 3, 2, 1, bias=False))(x)
+        x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(0.1))
+
+    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)
+
+    return SymbolicModel(inputs, output)
+
+
+#class Generator(nn.Module):
+#    def __init__(self, nc, nz, ngf):
+#        super(Generator, self).__init__()
+#        self.main = nn.Sequential(
+#            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
+#            nn.BatchNorm2d(ngf * 2),
+#            nn.ReLU(True),
+#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+#            nn.BatchNorm2d(ngf * 2),
+#            nn.ReLU(True),
+#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+#            nn.BatchNorm2d(ngf * 2),
+#            nn.ReLU(True),
+#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+#            nn.BatchNorm2d(ngf * 2),
+#            nn.ReLU(True),
+#            nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
+#            nn.Tanh(),
+#        )
+#
+#    def forward(self, x):
+#        return self.main(x)
 
 
 # TODO: 0.1 for lrelu
-class Discriminator(nn.Module):
-    def __init__(self, nc, ndf):
-        super(Discriminator, self).__init__()
-        self.main = nn.Sequential(
-            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
-            nn.LeakyReLU(0.1, inplace=True),
-            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
-            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
-            nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.1, inplace=True),
-            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
-            #nn.Sigmoid(),
-        )
-
-    def forward(self, i):
-        return self.main(i)
+#class Discriminator(nn.Module):
+#    def __init__(self, nc, ndf):
+#        super(Discriminator, self).__init__()
+#        self.main = nn.Sequential(
+#            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
+#            nn.BatchNorm2d(ndf),
+#            nn.LeakyReLU(0.1, inplace=True),
+#            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
+#            nn.BatchNorm2d(ndf * 2),
+#            nn.LeakyReLU(0.1, inplace=True),
+#            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
+#            nn.BatchNorm2d(ndf * 2),
+#            nn.LeakyReLU(0.1, inplace=True),
+#            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
+#            nn.BatchNorm2d(ndf * 2),
+#            nn.LeakyReLU(0.1, inplace=True),
+#            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
+#            #nn.Sigmoid(),
+#        )
+#
+#    def forward(self, x):
+#        return self.main(x)
 
 
 def weights_init(m):
@@ -165,9 +203,10 @@ if __name__ == '__main__':
     # ------------------------------------
     # Initialise Models and apply weights
     # ------------------------------------
-    netG = Generator(params['nc'], params['nz'], params['ngf']).to(device)
+    #netG = Generator(params['nc'], params['nz'], params['ngf']).to(device)
+    netG = Generator().to(device)
     netG.apply(weights_init)
-    netD = Discriminator(params['nc'], params['ndf']).to(device)
+    netD = Discriminator().to(device)
     netD.apply(weights_init)
 
 
