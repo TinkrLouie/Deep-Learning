@@ -28,7 +28,7 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.002,  # TODO: lr was 0.0002
+    'lr': 0.0002,  # TODO: lr was 0.0002
     'step': 50000,
     'nz': 100,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -43,7 +43,7 @@ params = {
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
 
-# TODO: Add Spectral Norm (Done) ->  Results : SN for both G&D = 87 | SN for D = ?
+# TODO: Add Spectral Norm (Done) ->  Results : SN for both G&D = 87 | SN for D = 87
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 
@@ -51,16 +51,16 @@ class Generator(nn.Module):
     def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
         self.main = nn.Sequential(
-            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
+            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
+            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
@@ -110,11 +110,9 @@ def gradient_penalty(D, real_images, fake_images, lambda_term=10):
     eta = eta.expand(real_images.size(0), 3, 32, 32).to(device)
 
     interpolated = (eta * real_images + ((1 - eta) * fake_images)).to(device)
-
-    # define it to calculate gradient
     interpolated = Variable(interpolated, requires_grad=True)
 
-    # calculate probability of interpolated examples
+    # Probability of interpolated examples
     prob_interpolated = D(interpolated)
 
     # calculate gradients of probabilities with respect to examples
