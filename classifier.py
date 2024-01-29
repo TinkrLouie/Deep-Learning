@@ -29,11 +29,6 @@ lr = 0.01
 valid_size = 0.2
 
 
-def RGBshow(img):
-    img = img * 0.5 + 0.5
-    plt.imshow(np.transpose(img, (1, 2, 0)))
-
-
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
                'chimpanzee', 'clock', 'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur', 'dolphin',
@@ -84,42 +79,60 @@ print(f'Size of testing dataset: {len(test_loader.dataset)}')
 class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.b1 = nn.BatchNorm2d(16)
-        self.b2 = nn.BatchNorm2d(48)
-        self.b3 = nn.BatchNorm2d(64)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        self.dropout = nn.Dropout(0.1)
-        self.fc1 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.out = nn.Linear(64, 100)
+        self.main = nn.Sequential(
+            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+
+            nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(48),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
+
+        self.fc = nn.Sequential(
+            nn.Dropout(0.1),
+            nn.Linear(64, 64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, 100)
+        )
 
     def forward(self, x):
-        x = self.pool(F.relu(self.b1(self.conv1(x))))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.pool(F.relu(self.b2(self.conv3(x))))
-        x = self.pool(F.relu(self.conv4(x)))
-        x = self.pool(F.relu(self.b3(self.conv5(x))))
+        x = self.main(x)
         x = x.view(-1, 64)
-        x = self.dropout(x)
-        x = self.dropout(F.relu(self.fc1(x)))
-        x = self.dropout(F.relu(self.fc2(x)))
-        x = self.out(x)
-        return x
+        out = self.fc(x)
+
+        return out
 
 
-def weight_init_normal(m):
+def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
         n = m.in_features
         y = (1.0 / np.sqrt(n))
         m.weight.data.normal_(0, y)
         m.bias.data.fill_(0)
+    elif classname.find("Conv") != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find("BatchNorm") != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
 
 
 def train(model, lr):
@@ -129,20 +142,15 @@ def train(model, lr):
     loss_keeper = {'train': [], 'valid': []}
     acc_keeper = {'train': [], 'valid': []}
     train_class_correct = list(0. for _ in range(n_class))
-    #valid_class_correct = list(0. for _ in range(n_class))
+
     class_total = list(0. for _ in range(n_class))
 
-    # minimum validation loss ----- set initial minimum to infinity
-    #valid_loss_min = np.Inf
+
     step = 0
     for epoch in range(n_epoch):
-        #if step >= 10000:
-        #    break
         train_loss = 0.0
-        #valid_loss = 0.0
 
         model.train()
-        #for images, labels in trainer:
         for _ in range(1000):
             images, labels = next(train_iterator)
             images, labels = images.to(device), labels.to(device)
@@ -159,46 +167,22 @@ def train(model, lr):
                 class_total[label] += 1
             step += 1
 
-        #model.eval()
-        #for images, labels in validater:
-        #    images, labels = images.to(device), labels.to(device)
-        #    output = model(images)
-        #    loss = criterion(output, labels)
-        #    valid_loss += loss.item()
-        #    _, pred = torch.max(output, 1)
-        #    valid_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
-        #    for idx, label in enumerate(labels):
-        #        # for idx in range(batch_size):
-        #        valid_class_correct[label] += valid_correct[idx].item()
-        #        class_total[label] += 1
-
         # Calculating loss over entire batch size for every epoch
         train_loss = train_loss / len(train_loader)
-        #valid_loss = valid_loss / len(validater)
 
         # Calculating loss over entire batch size for every epoch
         train_acc = float(100. * np.sum(train_class_correct) / np.sum(class_total))
-        #valid_acc = float(100. * np.sum(valid_class_correct) / np.sum(class_total))
 
         # saving loss values
         loss_keeper['train'].append(train_loss)
-        #loss_keeper['valid'].append(valid_loss)
 
         # saving acc values
         acc_keeper['train'].append(train_acc)
-        #acc_keeper['valid'].append(valid_acc)
 
         print(f"Epoch : {epoch + 1}")
-        #print(f"Training Loss : {train_loss}\tValidation Loss : {valid_loss}")
         print(f"Training Loss : {train_loss}")
-        #if valid_loss <= valid_loss_min:
-        #    print(f"Validation loss decreased from : {valid_loss_min} ----> {valid_loss} ----> Saving Model.......")
-        #    z = type(model).__name__
-        #    torch.save(model.state_dict(), z + '_model.pt')
-        #    valid_loss_min = valid_loss
-
-        #print(f"Training Accuracy : {train_acc}\tValidation Accuracy : {valid_acc}\n\n")
         print(f"Training Accuracy : {train_acc}\n\n")
+        test(cnn)
     print(step)
     return loss_keeper, acc_keeper
 
@@ -208,8 +192,7 @@ def test(model):
     class_correct = list(0. for _ in range(n_class))
     class_total = list(0. for _ in range(n_class))
 
-    model.eval()  # test the model with dropout layers off
-    #for images, labels in test_loader:
+    model.eval()
     for images, labels in test_loader:
 
         images, labels = images.to(device), labels.to(device)
@@ -226,32 +209,24 @@ def test(model):
     test_loss = test_loss / len(test_loader)
     print(f'For {type(model).__name__} :')
     print(f"Test Loss: {test_loss}")
-    print(f"Correctly predicted per class : {class_correct}, Total correctly perdicted : {sum(class_correct)}")
-    print(f"Total Predictions per class : {class_total}, Total predictions to be made : {sum(class_total)}\n")
-    for i in range(100):
-        if class_total[i] > 0:
-            print(
-                f"Test Accuracy of class {class_names[i]} : {float(100 * class_correct[i] / class_total[i])}% where {int(np.sum(class_correct[i]))} of {int(np.sum(class_total[i]))} were predicted correctly")
-        else:
-            print('Test Accuracy of %5s: N/A (no training examples)' % (class_names[i]))
 
-    print(
-        f"\nOverall Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}% where {int(np.sum(class_correct))} of {int(np.sum(class_total))} were predicted correctly")
+    print(f"Overall Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}% where {int(np.sum(class_correct))} of {int(np.sum(class_total))} were predicted correctly")
 
 
 cnn = CNN().to(device)
+
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
 
 if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
-cnn.apply(weight_init_normal)
+cnn.apply(weight_init)
 
 criterion = nn.CrossEntropyLoss()
 
 loss, acc = train(cnn, lr)
-test(cnn)
+
 
 # TODO: data visualisation of train loss and accuracy
 # TODO: reference existing code
