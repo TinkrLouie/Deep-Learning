@@ -200,7 +200,7 @@ if __name__ == '__main__':
     real_images_dir = 'real_images'
     generated_images_dir = 'generated_images'
     sample_dir = 'training_images'
-
+    my_path = os.path.abspath(__file__)
     setup_directory(sample_dir)
 
     # Scalar tensor for loss scaling in WGAN-GP
@@ -285,7 +285,7 @@ if __name__ == '__main__':
                 plt.axis("off")
                 plt.title("Fake Images")
                 plt.imshow(np.transpose(vutils.make_grid(img, padding=2, normalize=True), (1, 2, 0)))
-                plt.savefig(f'/{sample_dir}/sample_{iters}.png')
+                plt.savefig(os.path.join(my_path, f'/sample_{iters}.png'))
             # Save Losses for plotting later
             G_losses.append(errG.item())
             D_losses.append(errD.item())
