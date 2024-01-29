@@ -25,14 +25,14 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 # TODO: Tune hyperparameters
-# TODO: LeakyRELU vs RELU, 0.1 vs 0.2
+
 # hyperparameters
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
+    'lr': 0.0006,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
-    'nz': 100,  # Size of z latent vector
+    'nz': 128,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
     'fake_label': 0,
     'beta1': 0.5,  # Hyperparameter for Adam
@@ -55,16 +55,16 @@ class Generator(nn.Module):
         self.main = nn.Sequential(
             nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
             nn.BatchNorm2d(ngf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
             nn.Tanh(),
         )
@@ -73,21 +73,22 @@ class Generator(nn.Module):
         return self.main(i)
 
 
+# TODO: 0.1 for lrelu
 class Discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(Discriminator, self).__init__()
         self.main = nn.Sequential(
             spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.1, inplace=True),
             spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.1, inplace=True),
             spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.1, inplace=True),
             spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.1, inplace=True),
             nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
             #nn.Sigmoid(),
         )
@@ -275,9 +276,8 @@ if __name__ == '__main__':
 
             # Output training stats
             if iters % 1000 == 0:
-                print('[%d/%d][%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
-                      % (iters, params['step'], i, len(train_loader),
-                         errD.item(), errG.item()))
+                print('[%d/%d]\tLoss_D: %.4f\tLoss_G: %.4f'
+                      % (iters, params['step'], errD.item(), errG.item()))
             if iters % 5000 == 0:
                 with torch.no_grad():
                     img = netG(fixed_noise).detach().cpu()
@@ -292,6 +292,7 @@ if __name__ == '__main__':
 
             iters += 1
 
+    print('Training finished. Computing interpolation...')
     # ---------------------
     # Linear Interpolation
     # ---------------------
@@ -319,6 +320,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------------
     # Sampling from latent space and save 10000 samples to dir
     # ---------------------------------------------------------
+    print('Sampling n samples from latent space...')
     with torch.no_grad():
         sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
         fake = netG(sample_noise).detach().cpu()
