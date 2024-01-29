@@ -51,16 +51,16 @@ class Generator(nn.Module):
     def __init__(self, nc, nz, ngf):
         super(Generator, self).__init__()
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
+            spectral_norm(nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
-            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
+            spectral_norm(nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False)),
             nn.BatchNorm2d(ngf * 2),
             nn.ReLU(True),
             nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
@@ -245,7 +245,7 @@ if __name__ == '__main__':
             # Gradients for backward pass
             errD_fake.backward(one)
 
-            # TODO: GP function (Done) -> Results = FID = 444
+            # TODO: GP function (Done) -> Results = FID = 87.30
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
