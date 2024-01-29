@@ -80,44 +80,33 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
 
-        self.main = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(16),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
+        self.b1 = nn.BatchNorm2d(16)
+        self.b2 = nn.BatchNorm2d(48)
+        self.b3 = nn.BatchNorm2d(64)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-            nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-
-            nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(48),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(64),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-        )
-
-        self.fc = nn.Sequential(
-            nn.Dropout(0.1),
-            nn.Linear(64, 64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 64),
-            nn.ReLU(inplace=True),
-            nn.Linear(64, 100)
-        )
+        self.dp = nn.Dropout(0.1)
+        self.fc1 = nn.Linear(64, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.out = nn.Linear(64, 100)
 
     def forward(self, x):
-        x = self.main(x)
-        x = x.view(-1, 64)
-        out = self.fc(x)
-
+        x = self.pool(F.relu(self.b1(self.conv1(x))))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.b2(self.conv3(x))))
+        x = self.pool(F.relu(self.conv4(x)))
+        x = self.pool(F.relu(self.b3(self.conv5(x))))
+        x = torch.flatten(x, 1)
+        x = self.dp(x)
+        x = self.dp(F.relu(self.fc1(x)))
+        x = self.dp(F.relu(self.fc2(x)))
+        x = self.out(x)
+        out = F.log_softmax(x, dim=1)
         return out
 
 
@@ -139,12 +128,13 @@ def train(model, lr):
     optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
 
     # Number of epochs to train for
-    loss_keeper = {'train': [], 'valid': []}
-    acc_keeper = {'train': [], 'valid': []}
+    loss_keeper = []
+    acc_keeper = []
     train_class_correct = list(0. for _ in range(n_class))
 
     class_total = list(0. for _ in range(n_class))
 
+    print('Training...\n')
 
     step = 0
     for epoch in range(n_epoch):
@@ -174,14 +164,14 @@ def train(model, lr):
         train_acc = float(100. * np.sum(train_class_correct) / np.sum(class_total))
 
         # saving loss values
-        loss_keeper['train'].append(train_loss)
+        loss_keeper.append(train_loss)
 
         # saving acc values
-        acc_keeper['train'].append(train_acc)
+        acc_keeper.append(train_acc)
 
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
-        print(f"Training Accuracy : {train_acc}\n\n")
+        print(f"Training Accuracy : {train_acc}\n")
         test(cnn)
     print(step)
     return loss_keeper, acc_keeper
@@ -210,7 +200,7 @@ def test(model):
     print(f'For {type(model).__name__} :')
     print(f"Test Loss: {test_loss}")
 
-    print(f"Overall Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}% where {int(np.sum(class_correct))} of {int(np.sum(class_total))} were predicted correctly")
+    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}\n\n")
 
 
 cnn = CNN().to(device)
