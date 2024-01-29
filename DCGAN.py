@@ -224,8 +224,8 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
-            #errD_real = output.mean()
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
             errD_real.backward(mone)
 
@@ -239,8 +239,8 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward(one)
 
@@ -262,8 +262,8 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
-            #errG = output.mean()
+            #errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
             errG.backward(mone)
             # Update Generator
