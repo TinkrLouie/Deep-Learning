@@ -17,7 +17,7 @@ import torchvision.utils as vutils
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.autograd import Variable
 from torch import autograd
-from pytorch_symbolic import Input, SymbolicModel
+from pytorch_symbolic import Input, SymbolicModel, graph_algorithms
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -33,7 +33,7 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
+    'lr': 0.0002,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
     'nz': 128,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -42,6 +42,7 @@ params = {
     'dim': 32,  # Image Size
     'ngf': 64,  # Size of feature maps for Generator
     'ndf': 64,  # Size of feature maps for Discriminator
+    'lrelu_alpha': 0.25,
     'store_path': 'gan_model.pt'  # Store path for trained weights of model
 }
 
@@ -54,35 +55,26 @@ print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch
 
 def Generator():
     inputs = x = Input(batch_shape=(params['batch_size'], params['nz'], 1, 1))
-
     x = nn.ConvTranspose2d(params['nz'], params['ngf'] * 2, 3, 1, 0, bias=False)(x)
     x = nn.BatchNorm2d(params['ngf'] * 2)(x)(nn.ReLU())
-
     for _ in range(3):
         x = nn.ConvTranspose2d(params['ngf'] * 2, params['ngf'] * 2, 3, 2, 1, bias=False)(x)
         x = nn.BatchNorm2d(params['ngf'] * 2)(x)(nn.ReLU())
-
     output = nn.ConvTranspose2d(params['ngf'] * 2, params['nc'], 4, 2, 2, bias=False)(x, custom_name='generator')(
         nn.Tanh())
-
     return SymbolicModel(inputs, output)
 
 
 def Discriminator():
     inputs = x = Input(batch_shape=(params['batch_size'], params['nc'], params['dim'], params['dim']))
-
     x = spectral_norm(nn.Conv2d(params['nc'], params['ndf'], 2, 2, 1, bias=False))(x)
-    x = nn.BatchNorm2d(params['ndf'])(x)(nn.LeakyReLU(0.1))
-
+    x = nn.BatchNorm2d(params['ndf'])(x)(nn.LeakyReLU(params['lrelu_alpha']))
     x = spectral_norm(nn.Conv2d(params['ndf'], params['ndf'] * 2, 3, 2, 1, bias=False))(x)
-    x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(0.1))
-
+    x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
     for _ in range(2):
         x = spectral_norm(nn.Conv2d(params['ndf'] * 2, params['ndf'] * 2, 3, 2, 1, bias=False))(x)
-        x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(0.1))
-
-    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)
-
+        x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
+    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid())
     return SymbolicModel(inputs, output)
 
 
@@ -208,6 +200,8 @@ if __name__ == '__main__':
     netG.apply(weights_init)
     netD = Discriminator().to(device)
     netD.apply(weights_init)
+    netG.summary()
+    netD.summary()
 
 
     # --------------
@@ -268,10 +262,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            #errD_real = criterion(output, label)
-            errD_real = output.mean()
+            errD_real = criterion(output, label)
+            #errD_real = output.mean()
             # Gradients
-            errD_real.backward(mone)
+            errD_real.backward()
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -283,17 +277,17 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            #errD_fake = criterion(output, label)
-            errD_fake = output.mean()
+            errD_fake = criterion(output, label)
+            #errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward(one)
+            errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
             gp = gradient_penalty(netD, data, fake.detach())
             gp.backward()
             # Compute sum error of Discriminator
-            #errD = errD_fake + errD_real
-            errD = errD_fake - errD_real + gp
+            errD = errD_fake + errD_real
+            #errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -306,10 +300,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            #errG = criterion(output, label)
-            errG = output.mean()
+            errG = criterion(output, label)
+            #errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward(mone)
+            errG.backward()
             # Update Generator
             optimizerG.step()
 
