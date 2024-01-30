@@ -128,8 +128,8 @@ if __name__ == '__main__':
         # torchvision.transforms.Resize(40),
         # torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         ToTensor(),
-        #torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        #torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     ds = CIFAR100
@@ -293,7 +293,8 @@ if __name__ == '__main__':
     t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1, 1, 1).to(
         device)
     lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
+    with torch.no_grad():
+        lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
     plt.figure(figsize=(10, 5))
     plt.title('Interpolation')
@@ -309,8 +310,9 @@ if __name__ == '__main__':
     print('Sampling n samples from latent space...')
     num = 0
     while num < n_samples:
-        sample_noise = torch.randn(100, params['nz'], 1, 1).to(device)
-        fake = netG(sample_noise).detach().cpu()
+        with torch.no_grad():
+            sample_noise = torch.randn(100, params['nz'], 1, 1).to(device)
+            fake = netG(sample_noise).detach().cpu()
 
         for _, image in enumerate(fake):
             save_image(image, os.path.join(generated_images_dir, f"gen_img_{num}.png"))
@@ -329,7 +331,8 @@ if __name__ == '__main__':
     plt.legend()
     plt.savefig('training_loss.png')
 
-    fake = netG(fixed_noise).detach().cpu()
+    with torch.no_grad():
+        fake = netG(fixed_noise).detach().cpu()
 
     plt.figure(figsize=(15, 15))
     plt.axis("off")
