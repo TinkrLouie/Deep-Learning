@@ -28,7 +28,7 @@ torch.manual_seed(SEED)
 
 # TODO: Tune hyperparameters
 # TODO: 76.47 FID nz 128, lr 0.0005 for leaky 0.1
-# TODO: gp lowers performance, omitted!
+# TODO: gp lowers performance
 # TODO: 75.66 FID 0.0002 lr , 0.25 lrealpha
 
 # hyperparameters
@@ -75,7 +75,7 @@ def Discriminator():
     for _ in range(2):
         x = spectral_norm(nn.Conv2d(params['ndf'] * 2, params['ndf'] * 2, 3, 2, 1, bias=False))(x)
         x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
-    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid(), custom_name='discriminator')
+    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)  # (nn.Sigmoid(), custom_name='discriminator')
     return SymbolicModel(inputs, output)
 
 
@@ -128,7 +128,8 @@ if __name__ == '__main__':
         # torchvision.transforms.Resize(40),
         # torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         ToTensor(),
-        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        #torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     ds = CIFAR100
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     # Loss function
     # --------------
     criterion = nn.BCELoss().to(device)
-    criterion1 = nn.MSELoss().to(device)
+
 
     # ---------------------
     # Initialise optimiser
@@ -189,6 +190,7 @@ if __name__ == '__main__':
     my_path = os.path.abspath(__file__)
     setup_directory(sample_dir)
     setup_directory(generated_images_dir)
+
     # Scalar tensor for loss scaling in WGAN-GP
     one = torch.tensor(1, dtype=torch.float).to(device)
     mone = (one * -1).to(device)
@@ -214,9 +216,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion1(output, label)
+            # errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -228,15 +231,17 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
+            # errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
-            errD_fake.backward()
+            errD_fake.backward(one)
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            #gp = gradient_penalty(netD, data, fake.detach())
-            #gp.backward()
+            gp = gradient_penalty(netD, data, fake.detach())
+            gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_fake + errD_real
+            # errD = errD_fake + errD_real
+            errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -249,9 +254,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
+            # errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
