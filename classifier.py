@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize
+from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
 from torchvision.datasets import CIFAR100
 from torch.optim import SGD
@@ -28,7 +28,7 @@ dim = 32
 n_class = 100
 n_epoch = 10
 lr = 0.01
-valid_size = 0.2
+
 
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
@@ -44,6 +44,7 @@ class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee',
                'willow_tree', 'wolf', 'woman', 'worm', ]
 
 transform_train = Compose([
+    RandomCrop(32, padding=4, padding_mode='reflect'),
     RandomHorizontalFlip(),
     RandomRotation(10),
     ToTensor(),
@@ -91,9 +92,9 @@ def CNN():
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
     x = nn.Conv2d(48, 64, kernel_size=3, stride=1, padding=1)(x)
     x = nn.BatchNorm2d(64)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
+    x1 = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x1)
+    x = nn.BatchNorm2d(64)(x)(nn.ReLU()) + x1
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
     x = nn.Flatten()(x)
     x = nn.Dropout(0.1)(x)
@@ -120,38 +121,49 @@ def weight_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
-def train(model, lr):
-    optimizer = SGD(model.parameters(), lr=lr, momentum=0.9)
+def get_lr(optimiser):
+    for param_group in optimiser.param_groups:
+        return param_group['lr']
 
-    # Number of epochs to train for
+
+def train(model):
+    lr_keeper = []
     loss_keeper = []
     acc_keeper = []
-    train_class_correct = list(0. for _ in range(n_class))
-
-    class_total = list(0. for _ in range(n_class))
 
     print('Training...\n')
 
-    step = 0
     for epoch in range(n_epoch):
         train_loss = 0.0
-
+        train_class_correct = list(0. for _ in range(n_class))
+        class_total = list(0. for _ in range(n_class))
+        per_class_acc = []
         model.train()
         for _ in range(1000):
+            # Get input from batch loader
             images, labels = next(train_iterator)
             images, labels = images.to(device), labels.to(device)
-            optimizer.zero_grad()
+            optimiser.zero_grad()
+            # Forward pass
             output = model(images)
+            # Loss
             loss = criterion(output, labels)
+            # Gradients
             loss.backward()
-            optimizer.step()
+            # Grad clipping
+            nn.utils.clip_grad_value_(model.parameters(), 0.1)
+            # Update optimiser
+            optimiser.step()
+            # Update scheduler
+            lr_keeper.append(get_lr(optimiser))
+            scheduler.step()
+
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
             train_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
             for idx, label in enumerate(labels):
                 train_class_correct[label] += train_correct[idx].item()
                 class_total[label] += 1
-            step += 1
 
         # Calculating loss over entire batch size for every epoch
         train_loss = train_loss / len(train_loader)
@@ -165,19 +177,23 @@ def train(model, lr):
         # saving acc values
         acc_keeper.append(train_acc)
 
+        for i in range(n_class):
+            if class_total[i] == 0:
+                continue
+            per_class_acc.append(float(100. * train_class_correct[i] / class_total[i]))
+
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
-        print(f"Training Accuracy : {train_acc}\n")
+        print(f"Training Accuracy : {train_acc}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n")
         test(cnn)
-    print(step)
-    return loss_keeper, acc_keeper
+    return loss_keeper, acc_keeper, lr_keeper
 
 
 def test(model):
     test_loss = 0
     class_correct = list(0. for _ in range(n_class))
     class_total = list(0. for _ in range(n_class))
-
+    per_class_acc = []
     model.eval()
     for images, labels in test_loader:
 
@@ -192,9 +208,14 @@ def test(model):
             class_correct[label] += correct[idx].item()
             class_total[label] += 1
 
+    for i in range(n_class):
+        if class_total[i] == 0:
+            continue
+        per_class_acc.append(float(100. * class_correct[i]/class_total[i]))
+
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}\n\n")
+    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n\n")
 
 
 cnn = CNN().to(device)
@@ -206,12 +227,13 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
 cnn.apply(weight_init)
-
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 8], last_epoch=-1)
 criterion = nn.CrossEntropyLoss()
 
-loss, acc = train(cnn, lr)
+loss, acc, lrs = train(cnn)
 
-# ------------------------------
+# -------------------   -----------
 # Plot figures using matplotlib
 # ------------------------------
 fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
@@ -224,5 +246,4 @@ plt.savefig('classifier_loss_acc.png')
 # TODO: data visualisation of train loss and accuracy
 # TODO: reference existing code
 # TODO: a plot of the training and test accuracy over the length of your training
-# TODO: the total number of parameters in your network
 # TODO: the final values for training loss, training accuracy and test accuracy (means and standard deviations)
