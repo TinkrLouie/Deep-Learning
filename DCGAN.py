@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torchvision
 from matplotlib import pyplot as plt
-import torch.nn.functional as F
 from torchvision.utils import save_image
 import numpy as np
 import random
@@ -17,7 +16,7 @@ import torchvision.utils as vutils
 from torch.nn.utils.parametrizations import spectral_norm
 from torch.autograd import Variable
 from torch import autograd
-from pytorch_symbolic import Input, SymbolicModel, graph_algorithms
+from pytorch_symbolic import Input, SymbolicModel
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -29,7 +28,9 @@ torch.manual_seed(SEED)
 
 # TODO: Tune hyperparameters
 # TODO: 76.47 FID nz 128, lr 0.0005 for leaky 0.1
-# TODO: 77.09 FID for gp only
+# TODO: gp lowers performance, omitted!
+# TODO: 75.66 FID 0.0002 lr , 0.25 lrealpha
+
 # hyperparameters
 params = {
     'batch_size': 64,
@@ -76,55 +77,6 @@ def Discriminator():
         x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
     output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid(), custom_name='discriminator')
     return SymbolicModel(inputs, output)
-
-
-#class Generator(nn.Module):
-#    def __init__(self, nc, nz, ngf):
-#        super(Generator, self).__init__()
-#        self.main = nn.Sequential(
-#            nn.ConvTranspose2d(nz, ngf * 2, 3, 1, 0, bias=False),
-#            nn.BatchNorm2d(ngf * 2),
-#            nn.ReLU(True),
-#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-#            nn.BatchNorm2d(ngf * 2),
-#            nn.ReLU(True),
-#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-#            nn.BatchNorm2d(ngf * 2),
-#            nn.ReLU(True),
-#            nn.ConvTranspose2d(ngf * 2, ngf * 2, 3, 2, 1, bias=False),
-#            nn.BatchNorm2d(ngf * 2),
-#            nn.ReLU(True),
-#            nn.ConvTranspose2d(ngf * 2, nc, 4, 2, 2, bias=False),
-#            nn.Tanh(),
-#        )
-#
-#    def forward(self, x):
-#        return self.main(x)
-
-
-# TODO: 0.1 for lrelu
-#class Discriminator(nn.Module):
-#    def __init__(self, nc, ndf):
-#        super(Discriminator, self).__init__()
-#        self.main = nn.Sequential(
-#            spectral_norm(nn.Conv2d(nc, ndf, 2, 2, 1, bias=False)),
-#            nn.BatchNorm2d(ndf),
-#            nn.LeakyReLU(0.1, inplace=True),
-#            spectral_norm(nn.Conv2d(ndf, ndf * 2, 3, 2, 1, bias=False)),
-#            nn.BatchNorm2d(ndf * 2),
-#            nn.LeakyReLU(0.1, inplace=True),
-#            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
-#            nn.BatchNorm2d(ndf * 2),
-#            nn.LeakyReLU(0.1, inplace=True),
-#            spectral_norm(nn.Conv2d(ndf * 2, ndf * 2, 3, 2, 1, bias=False)),
-#            nn.BatchNorm2d(ndf * 2),
-#            nn.LeakyReLU(0.1, inplace=True),
-#            nn.Conv2d(ndf * 2, 1, 3, 1, 0, bias=False),
-#            #nn.Sigmoid(),
-#        )
-#
-#    def forward(self, x):
-#        return self.main(x)
 
 
 def weights_init(m):
@@ -263,7 +215,6 @@ if __name__ == '__main__':
             output = netD(data).view(-1)
             # Loss of real images
             errD_real = criterion(output, label)
-            #errD_real = output.mean()
             # Gradients
             errD_real.backward()
 
@@ -278,7 +229,6 @@ if __name__ == '__main__':
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
             errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward()
 
@@ -287,7 +237,6 @@ if __name__ == '__main__':
             #gp.backward()
             # Compute sum error of Discriminator
             errD = errD_fake + errD_real
-            #errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -301,7 +250,6 @@ if __name__ == '__main__':
             output = netD(fake).view(-1)
             # G's loss based on this output
             errG = criterion(output, label)
-            #errG = output.mean()
             # Calculate gradients for Generator
             errG.backward()
             # Update Generator
