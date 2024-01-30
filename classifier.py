@@ -197,9 +197,7 @@ def test(model):
             class_total[label] += 1
 
     test_loss = test_loss / len(test_loader)
-    print(f'For {type(model).__name__} :')
     print(f"Test Loss: {test_loss}")
-
     print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}\n\n")
 
 
