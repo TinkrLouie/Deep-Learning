@@ -3,13 +3,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize
 import os
 from torchvision.datasets import CIFAR100
 from torch.optim import SGD
+from pytorch_symbolic import Input, SymbolicModel
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
@@ -76,38 +78,32 @@ print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
+def CNN():
+    inputs = x = Input(batch_shape=(batch_size, n_channels, dim, dim))
+    x = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(16)(x)(nn.ReLU())
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(32, 48, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(48)(x)(nn.ReLU())
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(48, 64, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Flatten()(x)
+    x = nn.Dropout(0.1)(x)
+    for _ in range(2):
+        x = nn.Linear(64, 64)(x)(nn.ReLU())
+        x = nn.Dropout(0.1)(x)
+    x = nn.Linear(64, 100)(x)
+    output = F.log_softmax(x, dim=1)
 
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(in_channels=32, out_channels=48, kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv2d(in_channels=48, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.conv5 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.b1 = nn.BatchNorm2d(16)
-        self.b2 = nn.BatchNorm2d(48)
-        self.b3 = nn.BatchNorm2d(64)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-        self.dp = nn.Dropout(0.1)
-        self.fc1 = nn.Linear(64, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.out = nn.Linear(64, 100)
-
-    def forward(self, x):
-        x = self.pool(F.relu(self.b1(self.conv1(x))))
-        x = self.pool(F.relu(self.conv2(x)))
-        x = self.pool(F.relu(self.b2(self.conv3(x))))
-        x = self.pool(F.relu(self.conv4(x)))
-        x = self.pool(F.relu(self.b3(self.conv5(x))))
-        x = torch.flatten(x, 1)
-        x = self.dp(x)
-        x = self.dp(F.relu(self.fc1(x)))
-        x = self.dp(F.relu(self.fc2(x)))
-        x = self.out(x)
-        out = F.log_softmax(x, dim=1)
-        return out
+    return SymbolicModel(inputs, output)
 
 
 def weight_init(m):
@@ -215,6 +211,15 @@ criterion = nn.CrossEntropyLoss()
 
 loss, acc = train(cnn, lr)
 
+# ------------------------------
+# Plot figures using matplotlib
+# ------------------------------
+fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+plt.title("LossDuring Training")
+axes[0].plot(loss, label="Loss")
+axes[1].plot(acc, label="Accuracy")
+fig.imshow()
+plt.savefig('classifier_loss_acc.png')
 
 # TODO: data visualisation of train loss and accuracy
 # TODO: reference existing code
