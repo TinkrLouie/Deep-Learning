@@ -29,6 +29,7 @@ torch.manual_seed(SEED)
 
 # TODO: Tune hyperparameters
 # TODO: 76.47 FID nz 128, lr 0.0005 for leaky 0.1
+# TODO: 77.09 FID for gp only
 # hyperparameters
 params = {
     'batch_size': 64,
@@ -60,8 +61,7 @@ def Generator():
     for _ in range(3):
         x = nn.ConvTranspose2d(params['ngf'] * 2, params['ngf'] * 2, 3, 2, 1, bias=False)(x)
         x = nn.BatchNorm2d(params['ngf'] * 2)(x)(nn.ReLU())
-    output = nn.ConvTranspose2d(params['ngf'] * 2, params['nc'], 4, 2, 2, bias=False)(x, custom_name='generator')(
-        nn.Tanh())
+    output = nn.ConvTranspose2d(params['ngf'] * 2, params['nc'], 4, 2, 2, bias=False)(x)(nn.Tanh(), custom_name='generator')
     return SymbolicModel(inputs, output)
 
 
@@ -74,7 +74,7 @@ def Discriminator():
     for _ in range(2):
         x = spectral_norm(nn.Conv2d(params['ndf'] * 2, params['ndf'] * 2, 3, 2, 1, bias=False))(x)
         x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
-    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid())
+    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid(), custom_name='discriminator')
     return SymbolicModel(inputs, output)
 
 
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     # Loss function
     # --------------
     criterion = nn.BCELoss().to(device)
-
+    criterion1 = nn.MSELoss().to(device)
 
     # ---------------------
     # Initialise optimiser
@@ -236,7 +236,7 @@ if __name__ == '__main__':
     sample_dir = 'training_images'
     my_path = os.path.abspath(__file__)
     setup_directory(sample_dir)
-
+    setup_directory(generated_images_dir)
     # Scalar tensor for loss scaling in WGAN-GP
     one = torch.tensor(1, dtype=torch.float).to(device)
     mone = (one * -1).to(device)
@@ -283,8 +283,8 @@ if __name__ == '__main__':
             errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            gp = gradient_penalty(netD, data, fake.detach())
-            gp.backward()
+            #gp = gradient_penalty(netD, data, fake.detach())
+            #gp.backward()
             # Compute sum error of Discriminator
             errD = errD_fake + errD_real
             #errD = errD_fake - errD_real + gp
@@ -325,6 +325,7 @@ if __name__ == '__main__':
 
             iters += 1
 
+    netG.eval()
     print('Training finished. Computing interpolation...')
     # ---------------------
     # Linear Interpolation
@@ -338,10 +339,8 @@ if __name__ == '__main__':
     t = torch.linspace(0, 1, col_size).unsqueeze(1).repeat(1, col_size).view(params['batch_size'], 1, 1, 1).to(
         device)
     lerp_z = (1 - t) * z0 + t * z1  # linearly interpolate between two points in the latent space
-    with torch.no_grad():
-        lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
+    lerp_g = netG(lerp_z)  # sample the model at the resulting interpolated latents
 
-    print(f'Discriminator statistics: mean = {np.average(D_losses)}, stdev = {np.std(D_losses)},')
     plt.figure(figsize=(10, 5))
     plt.title('Interpolation')
     plt.rcParams['figure.dpi'] = 100
@@ -354,14 +353,14 @@ if __name__ == '__main__':
     # Sampling from latent space and save 10000 samples to dir
     # ---------------------------------------------------------
     print('Sampling n samples from latent space...')
-    with torch.no_grad():
-        sample_noise = torch.randn(n_samples, params['nz'], 1, 1).to(device)
+    num = 0
+    while num < n_samples:
+        sample_noise = torch.randn(100, params['nz'], 1, 1).to(device)
         fake = netG(sample_noise).detach().cpu()
 
-    setup_directory(generated_images_dir)
-
-    for n, image in enumerate(fake):
-        save_image(image, os.path.join(generated_images_dir, f"gen_img_{n}.png"))
+        for _, image in enumerate(fake):
+            save_image(image, os.path.join(generated_images_dir, f"gen_img_{num}.png"))
+            num += 1
 
 
     # ------------------------------
@@ -376,8 +375,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.savefig('training_loss.png')
 
-    with torch.no_grad():
-        fake = netG(fixed_noise).detach().cpu()
+    fake = netG(fixed_noise).detach().cpu()
 
     plt.figure(figsize=(15, 15))
     plt.axis("off")
