@@ -27,7 +27,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.01
+lr = 0.1
 
 
 
@@ -228,7 +228,7 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
 
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 8], last_epoch=-1)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], last_epoch=-1)
 criterion = nn.CrossEntropyLoss()
 
 loss, acc, lrs = train(cnn)
