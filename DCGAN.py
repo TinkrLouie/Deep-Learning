@@ -214,7 +214,7 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
+            errD_real = criterion1(output, label)
             # Gradients
             errD_real.backward()
 
