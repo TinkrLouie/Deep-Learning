@@ -75,7 +75,7 @@ def Discriminator():
     for _ in range(2):
         x = spectral_norm(nn.Conv2d(params['ndf'] * 2, params['ndf'] * 2, 3, 2, 1, bias=False))(x)
         x = nn.BatchNorm2d(params['ndf'] * 2)(x)(nn.LeakyReLU(params['lrelu_alpha']))
-    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)  # (nn.Sigmoid(), custom_name='discriminator')
+    output = nn.Conv2d(params['ndf'] * 2, 1, 3, 1, 0, bias=False)(x)(nn.Sigmoid(), custom_name='discriminator')
     return SymbolicModel(inputs, output)
 
 
@@ -128,8 +128,8 @@ if __name__ == '__main__':
         # torchvision.transforms.Resize(40),
         # torchvision.transforms.RandomResizedCrop(32, scale=(0.8, 1.0)),
         ToTensor(),
-        #torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-        torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+        #torchvision.transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
 
     ds = CIFAR100
