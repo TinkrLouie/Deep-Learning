@@ -271,7 +271,7 @@ def test(model):
 
 
 cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)
-graph_algorithms.draw_graph(model=cnn, figsize=(9, 6))
+
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
 
