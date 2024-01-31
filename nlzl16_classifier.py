@@ -84,14 +84,14 @@ print(f'Size of testing dataset: {len(test_loader.dataset)}')
 def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
-        #n = m.in_features
-        #y = (1.0 / np.sqrt(n))
-        #m.weight.data.normal_(0, y)
-        #m.bias.data.fill_(0)
-        init.kaiming_normal_(m.weight)
+        n = m.in_features
+        y = (1.0 / np.sqrt(n))
+        m.weight.data.normal_(0, y)
+        m.bias.data.fill_(0)
+        #init.kaiming_normal_(m.weight)
     elif classname.find("Conv") != -1:
-        #nn.init.normal_(m.weight.data, 0.0, 0.02)
-        init.kaiming_normal_(m.weight)
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+        #init.kaiming_normal_(m.weight)
     elif classname.find("BatchNorm") != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
@@ -169,7 +169,7 @@ def ResNet(
     # The classifier
     flow = flow(nn.BatchNorm2d(flow.channels))(activation)
     outs = classifier(flow, n_classes, pooling=final_pooling)
-    #outs = nn.LogSoftmax(dim=1)(outs)  # TODO: Test if LogSoftmax is beneficial to performance
+    outs = nn.LogSoftmax(dim=1)(outs)  # TODO: Test if LogSoftmax is beneficial to performance
     model = SymbolicModel(inputs=inputs, outputs=outs)
     return model
 
