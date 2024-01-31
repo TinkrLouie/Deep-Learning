@@ -185,7 +185,7 @@ def setup_directory(directory):
 
 
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
@@ -197,10 +197,9 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
 # Apply weights to neural net
 cnn.apply(weight_init)
 
-# TODO: test between Adam and SGD
+# TODO: test between Adam and SGD, test weight decay (Done) => Adam < SGD, weight decay < no weight decay
 # Optimiser
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
-#optimiser = Adam(cnn.parameters(), lr=lr, betas=(beta1, 0.999))
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
@@ -230,6 +229,7 @@ while step < n_steps:
         # TODO: Explore grad clipping
         # Grad clipping
         #nn.utils.clip_grad_value_(cnn.parameters(), 1)  # Alternative: 0.1
+
         # Update optimiser
         optimiser.step()
         step += 1
@@ -238,6 +238,7 @@ while step < n_steps:
         # Update scheduler
         #lr_keeper.append(get_lr(optimiser))
         #scheduler.step()
+
         _, pred = torch.max(output, 1)
 
         train_loss_arr = np.append(train_loss_arr, loss.cpu().data)
@@ -268,6 +269,7 @@ plt.legend(loc="upper left")
 plt.savefig('classifier_training_result.png')
 
 
+# Function to plot lr when scheduling is used, currently not in use
 def plot_lrs(history):
     plt.plot(history)
     plt.xlabel('Batch no.')
@@ -276,5 +278,4 @@ def plot_lrs(history):
     plt.imshow()
     plt.savefig('lrs_history.png')
 
-
-plot_lrs(lr_keeper)
+#plot_lrs(lr_keeper)
