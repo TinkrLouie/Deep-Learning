@@ -32,7 +32,7 @@ for file in files:
 
         # Compute distance
         dist01 = loss_fn.forward(img0, img1)
-        print('%s: %.3f' % (file, dist01))
-        f.writelines('%s: %.6f\n' % (file, dist01))
+        #print('%s: %.3f' % (file, dist01))
+        f.writelines('%s, %s: %.6f\n' % (file, file1, dist01))
 
 f.close()
