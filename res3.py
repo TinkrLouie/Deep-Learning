@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from pytorch_symbolic import Input, SymbolicModel
+from pytorch_symbolic import Input, SymbolicModel, graph_algorithms
 from pytorch_symbolic import useful_layers
 import random
 import torch.nn as nn
@@ -120,7 +120,7 @@ def ResNet(
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),
     channels=(16, 32, 40),
-    activation=nn.ReLU(),
+    activation=nn.LeakyReLU(0.2),
     final_pooling="avgpool",
     dropout=0,
     bn_ends_block=False
@@ -271,14 +271,14 @@ def test(model):
 
 
 cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)
-
+graph_algorithms.draw_graph(model=cnn, figsize=(9, 6))
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
 
 if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
 #scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
