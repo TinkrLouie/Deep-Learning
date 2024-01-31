@@ -10,7 +10,7 @@ from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, Rand
 import os
 from torchvision.datasets import CIFAR100
 from torch.optim import SGD
-from pytorch_symbolic import Input, SymbolicModel
+#from pytorch_symbolic import Input, SymbolicModel
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
