@@ -275,7 +275,7 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[3, 5, 7, 9], gamma=0.02, last_epoch=-1)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], gamma=0.03, last_epoch=-1)
 criterion = nn.CrossEntropyLoss()
 
 loss, acc, lrs = train(cnn)
