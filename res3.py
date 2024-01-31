@@ -4,9 +4,6 @@ from pytorch_symbolic import Input, SymbolicModel
 from pytorch_symbolic import useful_layers
 import random
 import torch.nn as nn
-import torch.nn.functional as F
-from matplotlib import pyplot as plt
-from torch.nn import init
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
@@ -29,7 +26,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.01
+lr = 0.1
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
@@ -166,6 +163,11 @@ def ResNet(
     return model
 
 
+def get_lr(optimiser):
+    for param_group in optimiser.param_groups:
+        return param_group['lr']
+
+
 # Reference: https://github.com/NvsYashwanth/CIFAR-10-Image-Classification/tree/master
 def train(model):
     lr_keeper = []
@@ -222,8 +224,8 @@ def train(model):
 
         # TODO: Explore scheduler
         # Update scheduler
-        #lr_keeper.append(get_lr(optimiser))
-        #scheduler.step()
+        lr_keeper.append(get_lr(optimiser))
+        scheduler.step()
 
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
@@ -273,7 +275,7 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], last_epoch=-1)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[3, 5, 7, 9], gamma=0.02, last_epoch=-1)
 criterion = nn.CrossEntropyLoss()
 
 loss, acc, lrs = train(cnn)
