@@ -186,7 +186,7 @@ def setup_directory(directory):
 
 
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, bn_ends_block=True).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, bn_ends_block=True, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
