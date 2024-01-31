@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
 from torchvision.datasets import CIFAR100
-from torch.optim import SGD, Adam
+from torch.optim import SGD
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -98,6 +98,8 @@ def weight_init(m):
         nn.init.constant_(m.bias.data, 0)
 
 
+# Model referenced from GitHub repo of Pytorch-Symbolic
+# Reference: https://github.com/sjmikler/pytorch-symbolic/tree/main
 def classifier(flow, n_classes, pooling="avgpool"):
     if pooling == "catpool":
         maxp = flow(nn.MaxPool2d(kernel_size=(flow.H, flow.W)))
@@ -125,7 +127,7 @@ def ResNet(
     channels=(16, 32, 40),
     activation=nn.ReLU(),
     final_pooling="avgpool",
-    dropout=0,
+    dropout=0,  # p for dropout layers
     bn_ends_block=False
 ):
 
@@ -148,10 +150,10 @@ def ResNet(
 
     inputs = Input(batch_shape=input_shape)
 
-    # BUILDING HEAD OF THE NETWORK
+    # Head of the network
     flow = inputs(nn.Conv2d(inputs.channels, 16, 3, 1, 1))
 
-    # BUILD THE RESIDUAL BLOCKS
+    # The residual block
     for group_size, width, stride in zip(group_sizes, channels, strides):
         flow = flow(nn.BatchNorm2d(flow.channels))(activation)
         preactivate_block = False
@@ -163,7 +165,7 @@ def ResNet(
             preactivate_block = True
             stride = 1
 
-    # BUILDING THE CLASSIFIER
+    # The classifier
     flow = flow(nn.BatchNorm2d(flow.channels))(activation)
     outs = classifier(flow, n_classes, pooling=final_pooling)
     #outs = nn.LogSoftmax(dim=1)(outs)
@@ -171,6 +173,7 @@ def ResNet(
     return model
 
 
+# Function to find lr in optim params for clipping during training
 def get_lr(optimiser):
     for param_group in optimiser.param_groups:
         return param_group['lr']
@@ -187,7 +190,7 @@ def setup_directory(directory):
 training_res_dir = 'training_res_images'
 setup_directory(training_res_dir)
 
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, final_pooling='catpool').to(device)
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, dropout=0.2).to(device)  # Add final_pooling='catpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
