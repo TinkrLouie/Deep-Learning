@@ -29,7 +29,7 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-lr = 0.01
+lr = 0.5
 weight_decay = 1e-4
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
@@ -302,7 +302,7 @@ print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.para
 if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)  # Set lr to START_LR and functions below to find optimal LR
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)  # Set lr to START_LR and functions below to find optimal LR
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
