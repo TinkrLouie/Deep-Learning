@@ -29,7 +29,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.1
+lr = 0.01
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
