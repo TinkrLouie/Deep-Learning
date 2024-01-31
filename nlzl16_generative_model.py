@@ -17,8 +17,8 @@ from torch.nn.utils.parametrizations import spectral_norm
 from torch.autograd import Variable
 from torch import autograd
 from pytorch_symbolic import Input, SymbolicModel
+from lpips import LPIPS
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 # Setting reproducibility
 SEED = 0
@@ -218,10 +218,10 @@ if __name__ == '__main__':
             # Forward pass
             output = netD(data).view(-1)
             # Loss of real images
-            errD_real = criterion(output, label)
-            #errD_real = output.mean()
+            #errD_real = criterion(output, label)
+            errD_real = output.mean()
             # Gradients
-            errD_real.backward()
+            errD_real.backward(mone)
 
             # Train with fake images
             # Generate latent vectors with batch size indicated in params
@@ -233,17 +233,17 @@ if __name__ == '__main__':
             # Classify fake images with Discriminator
             output = netD(fake.detach()).view(-1)
             # Discriminator's loss on the fake images
-            errD_fake = criterion(output, label)
-            #errD_fake = output.mean()
+            #errD_fake = criterion(output, label)
+            errD_fake = output.mean()
             # Gradients for backward pass
             errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            #gp = gradient_penalty(netD, data, fake.detach())
-            #gp.backward()
+            gp = gradient_penalty(netD, data, fake.detach())
+            gp.backward()
             # Compute sum error of Discriminator
-            errD = errD_fake + errD_real
-            #errD = errD_fake - errD_real + gp
+            #errD = errD_fake + errD_real
+            errD = errD_fake - errD_real + gp
             # Update Discriminator
             optimizerD.step()
 
@@ -256,10 +256,10 @@ if __name__ == '__main__':
             # Forward pass of fake images through Discriminator
             output = netD(fake).view(-1)
             # G's loss based on this output
-            errG = criterion(output, label)
-            #errG = output.mean()
+            #errG = criterion(output, label)
+            errG = output.mean()
             # Calculate gradients for Generator
-            errG.backward()
+            errG.backward(mone)
             # Update Generator
             optimizerG.step()
 
