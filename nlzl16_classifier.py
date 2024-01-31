@@ -90,7 +90,8 @@ def weight_init(m):
         #m.bias.data.fill_(0)
         init.kaiming_normal_(m.weight)
     elif classname.find("Conv") != -1:
-        nn.init.normal_(m.weight.data, 0.0, 0.02)
+        #nn.init.normal_(m.weight.data, 0.0, 0.02)
+        init.kaiming_normal_(m.weight)
     elif classname.find("BatchNorm") != -1:
         nn.init.normal_(m.weight.data, 1.0, 0.02)
         nn.init.constant_(m.bias.data, 0)
