@@ -142,7 +142,7 @@ class CNN(nn.Module):
         self.conv6 = conv_block(32, 32, pool=True)
         self.res3 = nn.Sequential(conv_block(32, 32), conv_block(32, 32))
 
-        self.classifier = nn.Sequential(nn.MaxPool2d(4),
+        self.classifier = nn.Sequential(nn.MaxPool2d(kernel_size=2, stride=2),
                                         nn.Flatten(),
                                         nn.Linear(32, num_classes))
 
