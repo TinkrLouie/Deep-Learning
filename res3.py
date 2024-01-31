@@ -190,7 +190,7 @@ def setup_directory(directory):
 training_res_dir = 'training_res_images'
 setup_directory(training_res_dir)
 
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, dropout=0.2).to(device)  # Add final_pooling='catpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, dropout=0.1).to(device)  # Add final_pooling='catpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
