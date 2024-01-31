@@ -26,7 +26,7 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 50
+n_epoch = 10
 lr = 0.01
 weight_decay = 1e-4
 
