@@ -29,13 +29,13 @@ torch.manual_seed(SEED)
 # TODO: Tune hyperparameters
 # TODO: 76.47 FID nz 128, lr 0.0005 for leaky 0.1
 # TODO: gp lowers performance
-# TODO: 72.56 FID 0.0002 lr , 0.25 lrealpha (Achieved for DCGAN)
+# TODO: 73.56 FID 0.0002 lr , 0.25 lrealpha (Achieved for DCGAN)
 
 # hyperparameters
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
+    'lr': 0.0002,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
     'nz': 128,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
@@ -44,7 +44,7 @@ params = {
     'dim': 32,  # Image Size
     'ngf': 64,  # Size of feature maps for Generator
     'ndf': 64,  # Size of feature maps for Discriminator
-    'lrelu_alpha': 0.2,
+    'lrelu_alpha': 0.25,
     'store_path': 'gan_model.pt'  # Store path for trained weights of model
 }
 
@@ -239,8 +239,8 @@ if __name__ == '__main__':
             errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            #gp = gradient_penalty(netD, data, fake.detach())
-            #gp.backward()
+            gp = gradient_penalty(netD, data, fake.detach())
+            gp.backward()
             # Compute sum error of Discriminator
             errD = errD_fake + errD_real
             #errD = errD_fake - errD_real + gp
