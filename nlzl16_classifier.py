@@ -11,6 +11,7 @@ from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, Rand
 import os
 from torchvision.datasets import CIFAR100
 from torch.optim import SGD
+from torch.optim.lr_scheduler import LRScheduler
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -185,10 +186,109 @@ def setup_directory(directory):
     os.makedirs(directory)
 
 
+# Classes to find optimal LR
+# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
+class ExponentialLR(LRScheduler):
+    def __init__(self, optimizer, end_lr, num_iter, last_epoch=-1):
+        self.end_lr = end_lr
+        self.num_iter = num_iter
+        super(ExponentialLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        curr_iter = self.last_epoch
+        r = curr_iter / self.num_iter
+        return [base_lr * (self.end_lr / base_lr) ** r
+                for base_lr in self.base_lrs]
+
+
+class IteratorWrapper:
+    def __init__(self, iterator):
+        self.iterator = iterator
+        self._iterator = iter(iterator)
+
+    def __next__(self):
+        try:
+            inputs, labels = next(self._iterator)
+        except StopIteration:
+            self._iterator = iter(self.iterator)
+            inputs, labels, *_ = next(self._iterator)
+
+        return inputs, labels
+
+    def get_batch(self):
+        return next(self)
+
+
+class LRFinder:
+    def __init__(self, model, optimizer, criterion, device):
+        self.optimizer = optimizer
+        self.model = model
+        self.criterion = criterion
+        self.device = device
+        torch.save(model.state_dict(), 'init_params.pt')
+    def range_test(self, iterator, end_lr=10, num_iter=100,
+                   smooth_f=0.05, diverge_th=5):
+        lrs = []
+        losses = []
+        best_loss = float('inf')
+
+        lr_scheduler = ExponentialLR(self.optimizer, end_lr, num_iter)
+
+        iterator = IteratorWrapper(iterator)
+
+        for iteration in range(num_iter):
+
+            loss = self._train_batch(iterator)
+
+            lrs.append(lr_scheduler.get_last_lr()[0])
+
+            # update lr
+            lr_scheduler.step()
+
+            if iteration > 0:
+                loss = smooth_f * loss + (1 - smooth_f) * losses[-1]
+
+            if loss < best_loss:
+                best_loss = loss
+
+            losses.append(loss)
+
+            if loss > diverge_th * best_loss:
+                print("Stopping early, the loss has diverged")
+                break
+
+        # reset model to initial parameters
+        self.model.load_state_dict(torch.load('init_params.pt'))
+
+        return lrs, losses
+
+    def _train_batch(self, iterator):
+
+        self.model.train()
+
+        self.optimizer.zero_grad()
+
+        x, y = iterator.get_batch()
+
+        x = x.to(self.device)
+        y = y.to(self.device)
+
+        y_pred = self.model(x)
+
+        loss = self.criterion(y_pred, y)
+
+        loss.backward()
+
+        self.optimizer.step()
+
+        return loss.item()
+
+
 # Set up dir for graphs
 training_res_dir = 'training_res_images'
 setup_directory(training_res_dir)
 
+START_LR = 1e-7
 # TODO: Dropout layers, p>0 seems to decrease performance
 cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
@@ -199,9 +299,37 @@ print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.para
 if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)  # Set lr to START_LR and functions below to find optimal LR
 #scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
+
+#END_LR = 10
+#NUM_ITER = 200
+#lr_finder = LRFinder(cnn, optimiser, criterion, device)
+#lrs, losses = lr_finder.range_test(train_iterator, END_LR, NUM_ITER)
+
+
+def plot_lr_finder(lrs, losses, skip_start=5, skip_end=5):
+
+    if skip_end == 0:
+        lrs = lrs[skip_start:]
+        losses = losses[skip_start:]
+    else:
+        lrs = lrs[skip_start:-skip_end]
+        losses = losses[skip_start:-skip_end]
+
+    fig = plt.figure(figsize=(16, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(lrs, losses)
+    ax.set_xscale('log')
+    ax.set_xlabel('Learning rate')
+    ax.set_ylabel('Loss')
+    ax.grid(True, 'both', 'x')
+    plt.show()
+
+
+# Enable to plot graph to find LR
+#plot_lr_finder(lrs, losses)
 
 plot_data = []
 step = 0
