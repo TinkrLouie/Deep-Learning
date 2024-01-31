@@ -199,8 +199,8 @@ cnn.apply(weight_init)
 
 # TODO: test between Adam and SGD
 # Optimiser
-#optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
-optimiser = Adam(cnn.parameters(), lr=lr, betas=(beta1, 0.999))
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
+#optimiser = Adam(cnn.parameters(), lr=lr, betas=(beta1, 0.999))
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
