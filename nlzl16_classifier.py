@@ -10,8 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
 from torchvision.datasets import CIFAR100
-from torch.optim import SGD
-from torch.optim.lr_scheduler import LRScheduler
+from torch.optim import SGD, Adam
 
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -29,8 +28,9 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-lr = 0.5
+lr = 0.01
 weight_decay = 1e-4
+beta1 = 0.5
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
@@ -121,15 +121,14 @@ def shortcut_func(x, channels, stride):
 
 # Reference: https://github.com/sjmikler/pytorch-symbolic/tree/main
 def ResNet(
-    input_shape,
-    n_classes,
+    input_shape,    # [N, 3, 32, 32]
+    n_classes,      # ie. 100 classes for CIFAR 100
     strides=(1, 2, 2),
-    group_sizes=(2, 2, 2),
-    channels=(16, 32, 40),
+    group_sizes=(2, 2, 2),  # Number of conv block per residual layer
+    channels=(16, 32, 40),  # Block expansion for deeper network
     activation=nn.ReLU(),
     final_pooling="avgpool",
-    dropout=0,  # p for dropout layers
-    bn_ends_block=False
+    dropout=0  # p for dropout layers
 ):
 
     def simple_block(flow, channels, stride):
@@ -143,8 +142,6 @@ def ResNet(
             flow = flow(nn.Dropout(p=dropout))
         flow = flow(nn.Conv2d(flow.channels, channels, 3, 1, 1))
 
-        if bn_ends_block:
-            flow = flow(nn.BatchNorm2d(flow.channels))(activation)
         return flow
 
     block = simple_block
@@ -169,7 +166,7 @@ def ResNet(
     # The classifier
     flow = flow(nn.BatchNorm2d(flow.channels))(activation)
     outs = classifier(flow, n_classes, pooling=final_pooling)
-    #outs = nn.LogSoftmax(dim=1)(outs)
+    #outs = nn.LogSoftmax(dim=1)(outs)  # TODO: Test if LogSoftmax is beneficial to performance
     model = SymbolicModel(inputs=inputs, outputs=outs)
     return model
 
@@ -187,113 +184,8 @@ def setup_directory(directory):
     os.makedirs(directory)
 
 
-# Classes to find optimal LR
-# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
-class ExponentialLR(LRScheduler):
-    def __init__(self, optimizer, end_lr, num_iter, last_epoch=-1):
-        self.end_lr = end_lr
-        self.num_iter = num_iter
-        super(ExponentialLR, self).__init__(optimizer, last_epoch)
-
-    def get_lr(self):
-        curr_iter = self.last_epoch
-        r = curr_iter / self.num_iter
-        return [base_lr * (self.end_lr / base_lr) ** r
-                for base_lr in self.base_lrs]
-
-
-# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
-class IteratorWrapper:
-    def __init__(self, iterator):
-        self.iterator = iterator
-        self._iterator = iter(iterator)
-
-    def __next__(self):
-        try:
-            inputs, labels = next(self._iterator)
-        except StopIteration:
-            self._iterator = iter(self.iterator)
-            inputs, labels, *_ = next(self._iterator)
-
-        return inputs, labels
-
-    def get_batch(self):
-        return next(self)
-
-
-# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
-class LRFinder:
-    def __init__(self, model, optimizer, criterion, device):
-        self.optimizer = optimizer
-        self.model = model
-        self.criterion = criterion
-        self.device = device
-        torch.save(model.state_dict(), 'init_params.pt')
-    def range_test(self, iterator, end_lr=10, num_iter=100,
-                   smooth_f=0.05, diverge_th=5):
-        lrs = []
-        losses = []
-        best_loss = float('inf')
-
-        lr_scheduler = ExponentialLR(self.optimizer, end_lr, num_iter)
-
-        iterator = IteratorWrapper(iterator)
-
-        for iteration in range(num_iter):
-
-            loss = self._train_batch(iterator)
-
-            lrs.append(lr_scheduler.get_last_lr()[0])
-
-            # update lr
-            lr_scheduler.step()
-
-            if iteration > 0:
-                loss = smooth_f * loss + (1 - smooth_f) * losses[-1]
-
-            if loss < best_loss:
-                best_loss = loss
-
-            losses.append(loss)
-
-            if loss > diverge_th * best_loss:
-                print("Stopping early, the loss has diverged")
-                break
-
-        # reset model to initial parameters
-        self.model.load_state_dict(torch.load('init_params.pt'))
-
-        return lrs, losses
-
-    def _train_batch(self, iterator):
-
-        self.model.train()
-
-        self.optimizer.zero_grad()
-
-        x, y = iterator.get_batch()
-
-        x = x.to(self.device)
-        y = y.to(self.device)
-
-        y_pred = self.model(x)
-
-        loss = self.criterion(y_pred, y)
-
-        loss.backward()
-
-        self.optimizer.step()
-
-        return loss.item()
-
-
-# Set up dir for graphs
-training_res_dir = 'training_res_images'
-setup_directory(training_res_dir)
-
-START_LR = 1e-7
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, dropout=0.05, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
@@ -301,39 +193,16 @@ print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.para
 
 if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
+
+# Apply weights to neural net
 cnn.apply(weight_init)
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)  # Set lr to START_LR and functions below to find optimal LR
+
+# TODO: test between Adam and SGD
+# Optimiser
+#optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
+optimiser = Adam(cnn.parameters(), lr=lr, betas=(beta1, 0.999))
 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
-
-#END_LR = 10
-#NUM_ITER = 200
-#lr_finder = LRFinder(cnn, optimiser, criterion, device)
-#lrs, losses = lr_finder.range_test(train_iterator, END_LR, NUM_ITER)
-
-
-# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
-def plot_lr_finder(lrs, losses, skip_start=5, skip_end=5):
-
-    if skip_end == 0:
-        lrs = lrs[skip_start:]
-        losses = losses[skip_start:]
-    else:
-        lrs = lrs[skip_start:-skip_end]
-        losses = losses[skip_start:-skip_end]
-
-    fig = plt.figure(figsize=(16, 8))
-    ax = fig.add_subplot(1, 1, 1)
-    ax.plot(lrs, losses)
-    ax.set_xscale('log')
-    ax.set_xlabel('Learning rate')
-    ax.set_ylabel('Loss')
-    ax.grid(True, 'both', 'x')
-    plt.show()
-
-
-# Enable to plot graph to find LR
-#plot_lr_finder(lrs, losses)
 
 lr_keeper = []
 plot_data = []
@@ -357,15 +226,18 @@ while step < n_steps:
         loss = criterion(output, labels)
         # Gradients
         loss.backward()
+
         # TODO: Explore grad clipping
         # Grad clipping
         #nn.utils.clip_grad_value_(cnn.parameters(), 1)  # Alternative: 0.1
         # Update optimiser
         optimiser.step()
         step += 1
+
+        # TODO: Explore lr scheduling
         # Update scheduler
-        lr_keeper.append(get_lr(optimiser))
-        scheduler.step()
+        #lr_keeper.append(get_lr(optimiser))
+        #scheduler.step()
         _, pred = torch.max(output, 1)
 
         train_loss_arr = np.append(train_loss_arr, loss.cpu().data)
