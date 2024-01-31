@@ -6,6 +6,7 @@ from pytorch_symbolic import Input, SymbolicModel
 from pytorch_symbolic import useful_layers
 import random
 import torch.nn as nn
+from torch.nn import init
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
@@ -83,11 +84,11 @@ print(f'Size of testing dataset: {len(test_loader.dataset)}')
 def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
-        n = m.in_features
-        y = (1.0 / np.sqrt(n))
-        m.weight.data.normal_(0, y)
-        m.bias.data.fill_(0)
-        #init.kaiming_normal_(m.weight)
+        #n = m.in_features
+        #y = (1.0 / np.sqrt(n))
+        #m.weight.data.normal_(0, y)
+        #m.bias.data.fill_(0)
+        init.kaiming_normal_(m.weight)
     elif classname.find("Conv") != -1:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find("BatchNorm") != -1:
@@ -124,7 +125,7 @@ def ResNet(
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),  # Number of conv block per residual layer
     channels=(16, 32, 40),  # Block expansion for deeper network
-    activation=nn.SELU(),
+    activation=nn.ReLU(),   # ReLU current best activation, beats LeakyReLU, SELU, ELU
     final_pooling="avgpool",
     dropout=0,  # p for dropout layers
     bn_ends_block=False
