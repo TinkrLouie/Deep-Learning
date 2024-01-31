@@ -35,7 +35,7 @@ torch.manual_seed(SEED)
 params = {
     'batch_size': 64,
     'nc': 3,
-    'lr': 0.0002,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
+    'lr': 0.0005,  # 0.0002 => FID 81.57 | 0.0005=> 78.39
     'step': 50000,
     'nz': 128,  # Size of z latent vector
     'real_label': 0.9,  # Label smoothing
