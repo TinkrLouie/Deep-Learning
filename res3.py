@@ -26,7 +26,8 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.1
+lr = 0.01
+weight_decay = 1e-4
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
@@ -46,12 +47,14 @@ transform_train = Compose([
     RandomRotation(10),
     ToTensor(),
     Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    # (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
 ])
 
 # Normalize the test set same as training set without augmentation
 transform_test = Compose([
     ToTensor(),
     Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    # (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
 ])
 
 ds = CIFAR100
@@ -199,6 +202,9 @@ def train(model):
             # nn.utils.clip_grad_value_(model.parameters(), 0.1)
             # Update optimiser
             optimiser.step()
+            # Update scheduler
+            lr_keeper.append(get_lr(optimiser))
+            scheduler.step()
 
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
@@ -223,9 +229,6 @@ def train(model):
             per_class_acc.append(train_class_correct[i] / class_total[i])
 
         # TODO: Explore scheduler
-        # Update scheduler
-        lr_keeper.append(get_lr(optimiser))
-        scheduler.step()
 
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
@@ -275,7 +278,8 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], gamma=0.03, last_epoch=-1)
+scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch,
+                                                steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
 loss, acc, lrs = train(cnn)
