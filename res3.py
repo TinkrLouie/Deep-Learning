@@ -167,14 +167,6 @@ def ResNet(
     return model
 
 
-cnn = ResNet([64, 3, 32, 32], 100)
-
-# print the number of parameters - this should be included in your report
-print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
-
-if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
-    print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
-
 # Reference: https://github.com/NvsYashwanth/CIFAR-10-Image-Classification/tree/master
 def train(model):
     lr_keeper = []
@@ -274,6 +266,13 @@ def test(model):
         f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
 
 
+cnn = ResNet([64, 3, 32, 32], 100).to(device)
+
+# print the number of parameters - this should be included in your report
+print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
+
+if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
+    print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], last_epoch=-1)
