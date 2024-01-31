@@ -124,7 +124,7 @@ def ResNet(
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),  # Number of conv block per residual layer
     channels=(16, 32, 40),  # Block expansion for deeper network
-    activation=nn.ReLU(),
+    activation=nn.SELU(),
     final_pooling="avgpool",
     dropout=0,  # p for dropout layers
     bn_ends_block=False
@@ -186,7 +186,8 @@ def setup_directory(directory):
 
 
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, bn_ends_block=True, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+# TODO: maxpool performs worse than avgpool
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, bn_ends_block=True).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
