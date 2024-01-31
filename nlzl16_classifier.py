@@ -13,7 +13,6 @@ from torchvision.datasets import CIFAR100
 from torch.optim import SGD
 from torch.optim.lr_scheduler import LRScheduler
 
-os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
@@ -112,6 +111,7 @@ def classifier(flow, n_classes, pooling="avgpool"):
     return flow(nn.Linear(flow.features, n_classes))
 
 
+# Reference: https://github.com/sjmikler/pytorch-symbolic/tree/main
 def shortcut_func(x, channels, stride):
     if x.channels != channels or stride != 1:
         return x(nn.Conv2d(x.channels, channels, kernel_size=1, bias=False, stride=stride))
@@ -119,6 +119,7 @@ def shortcut_func(x, channels, stride):
         return x
 
 
+# Reference: https://github.com/sjmikler/pytorch-symbolic/tree/main
 def ResNet(
     input_shape,
     n_classes,
@@ -201,6 +202,7 @@ class ExponentialLR(LRScheduler):
                 for base_lr in self.base_lrs]
 
 
+# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
 class IteratorWrapper:
     def __init__(self, iterator):
         self.iterator = iterator
@@ -219,6 +221,7 @@ class IteratorWrapper:
         return next(self)
 
 
+# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
 class LRFinder:
     def __init__(self, model, optimizer, criterion, device):
         self.optimizer = optimizer
@@ -290,7 +293,7 @@ setup_directory(training_res_dir)
 
 START_LR = 1e-7
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, dropout=0.05, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
@@ -309,6 +312,7 @@ criterion = nn.CrossEntropyLoss()
 #lrs, losses = lr_finder.range_test(train_iterator, END_LR, NUM_ITER)
 
 
+# Reference: https://github.com/bentrevett/pytorch-image-classification/tree/master
 def plot_lr_finder(lrs, losses, skip_start=5, skip_end=5):
 
     if skip_end == 0:
