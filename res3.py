@@ -227,7 +227,7 @@ while step < n_steps:
         loss.backward()
         # TODO: Explore grad clipping
         # Grad clipping
-        nn.utils.clip_grad_value_(cnn.parameters(), 1)  # Alternative: 0.1
+        #nn.utils.clip_grad_value_(cnn.parameters(), 1)  # Alternative: 0.1
         # Update optimiser
         optimiser.step()
         step += 1
