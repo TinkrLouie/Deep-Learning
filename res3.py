@@ -118,7 +118,7 @@ def ResNet(
     n_classes,
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),
-    channels=(16, 32, 32),
+    channels=(16, 32, 40),
     activation=nn.ReLU(),
     final_pooling="avgpool",
     dropout=0,
