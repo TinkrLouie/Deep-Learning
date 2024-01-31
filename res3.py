@@ -163,7 +163,7 @@ def ResNet(
     # BUILDING THE CLASSIFIER
     flow = flow(nn.BatchNorm2d(flow.channels))(activation)
     outs = classifier(flow, n_classes, pooling=final_pooling)
-    outs = nn.LogSoftmax()(outs)
+    #outs = nn.LogSoftmax(dim=1)(outs)
     model = SymbolicModel(inputs=inputs, outputs=outs)
     return model
 
@@ -201,7 +201,7 @@ def train(model):
 
             # TODO: Explore grad clipping
             # Grad clipping
-            # nn.utils.clip_grad_value_(model.parameters(), 0.1)
+            nn.utils.clip_grad_value_(model.parameters(), 0.1)
             # Update optimiser
             optimiser.step()
             # Update scheduler
