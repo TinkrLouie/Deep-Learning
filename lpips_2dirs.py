@@ -19,14 +19,14 @@ if opt.use_gpu:
 # crawl directories
 f = open(opt.out, 'w')
 files = os.listdir(opt.dir0)
-
+files1 = os.listdir(opt.dir1)
 for file in files:
-    if os.path.exists(os.path.join(opt.dir1, file)):
+    for file1 in files1:
         # Load images
         img0 = lpips.im2tensor(lpips.load_image(os.path.join(opt.dir0, file)))  # RGB image from [-1,1]
-        img1 = lpips.im2tensor(lpips.load_image(os.path.join(opt.dir1, file)))
+        img1 = lpips.im2tensor(lpips.load_image(os.path.join(opt.dir1, file1)))
 
-        if (opt.use_gpu):
+        if opt.use_gpu:
             img0 = img0.cuda()
             img1 = img1.cuda()
 
