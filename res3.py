@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
 from torchvision.datasets import CIFAR100
-from torch.optim import SGD
+from torch.optim import SGD, Adam
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -26,7 +26,7 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 10
+n_epoch = 50
 lr = 0.01
 weight_decay = 1e-4
 
@@ -120,7 +120,7 @@ def ResNet(
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),
     channels=(16, 32, 40),
-    activation=nn.LeakyReLU(0.1),
+    activation=nn.ReLU(),
     final_pooling="avgpool",
     dropout=0,
     bn_ends_block=False
@@ -297,4 +297,16 @@ def plot_lrs(history):
 
 #plot_lrs(lrs)
 
+'''
+plot_data = [[n_epoch, np.array(train_acc_arr).mean(), np.array(train_acc_arr).std(), np.array(test_acc_arr).mean(),
+              np.array(test_acc_arr).std()]]
+plt.plot([x[0] for x in plot_data], [x[1] for x in plot_data], '-', color='tab:grey', label="Train accuracy")
+plt.fill_between([x[0] for x in plot_data], [x[1]-x[2] for x in plot_data], [x[1]+x[2] for x in plot_data], alpha=0.2, color='tab:grey')
+plt.plot([x[0] for x in plot_data], [x[3] for x in plot_data], '-', color='tab:purple', label="Test accuracy")
+plt.fill_between([x[0] for x in plot_data], [x[3]-x[4] for x in plot_data], [x[3]+x[4] for x in plot_data], alpha=0.2, color='tab:purple')
+plt.xlabel('Steps')
+plt.ylabel('Accuracy')
+plt.legend(loc="upper left")
+plt.show()
+'''
 # TODO: LeakyRELU
