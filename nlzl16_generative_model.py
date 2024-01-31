@@ -44,7 +44,7 @@ params = {
     'dim': 32,  # Image Size
     'ngf': 64,  # Size of feature maps for Generator
     'ndf': 64,  # Size of feature maps for Discriminator
-    'lrelu_alpha': 0.25,
+    'lrelu_alpha': 0.2,
     'store_path': 'gan_model.pt'  # Store path for trained weights of model
 }
 
@@ -239,8 +239,8 @@ if __name__ == '__main__':
             errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            gp = gradient_penalty(netD, data, fake.detach())
-            gp.backward()
+            #gp = gradient_penalty(netD, data, fake.detach())
+            #gp.backward()
             # Compute sum error of Discriminator
             errD = errD_fake + errD_real
             #errD = errD_fake - errD_real + gp
