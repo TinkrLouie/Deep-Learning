@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
+from torch.nn import init
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
@@ -27,7 +28,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.1
+lr = 0.01
 
 
 
@@ -92,17 +93,17 @@ def CNN():
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
     x = nn.Conv2d(48, 64, kernel_size=3, stride=1, padding=1)(x)
     x = nn.BatchNorm2d(64)(x)(nn.ReLU())
-    x1 = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x1)
-    x = nn.BatchNorm2d(64)(x)(nn.ReLU()) + x1
+    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
     x = nn.Flatten()(x)
     x = nn.Dropout(0.1)(x)
     for _ in range(2):
         x = nn.Linear(64, 64)(x)(nn.ReLU())
         x = nn.Dropout(0.1)(x)
-    x = nn.Linear(64, 100)(x)
-    output = F.log_softmax(x, dim=1)
+    output = nn.Linear(64, 100)(x)
+    output = F.log_softmax(output, dim=1)
 
     return SymbolicModel(inputs, output)
 
@@ -110,10 +111,11 @@ def CNN():
 def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
-        n = m.in_features
-        y = (1.0 / np.sqrt(n))
-        m.weight.data.normal_(0, y)
-        m.bias.data.fill_(0)
+        #n = m.in_features
+        #y = (1.0 / np.sqrt(n))
+        #m.weight.data.normal_(0, y)
+        #m.bias.data.fill_(0)
+        init.kaiming_normal_(m.weight)
     elif classname.find("Conv") != -1:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find("BatchNorm") != -1:
@@ -151,12 +153,12 @@ def train(model):
             # Gradients
             loss.backward()
             # Grad clipping
-            nn.utils.clip_grad_value_(model.parameters(), 0.1)
+            # nn.utils.clip_grad_value_(model.parameters(), 0.1)
             # Update optimiser
             optimiser.step()
             # Update scheduler
-            lr_keeper.append(get_lr(optimiser))
-            scheduler.step()
+            #lr_keeper.append(get_lr(optimiser))
+            #scheduler.step()
 
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
@@ -178,12 +180,13 @@ def train(model):
         acc_keeper.append(train_acc)
 
         for i in range(n_class):
-            if class_total[i] == 0:
-                continue
-            per_class_acc.append(float(100. * train_class_correct[i] / class_total[i]))
+            per_class_acc.append(train_class_correct[i] / class_total[i])
 
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
+        print(train_class_correct)
+        print(class_total)
+        print(len(per_class_acc), per_class_acc)
         print(f"Training Accuracy : {train_acc}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n")
         test(cnn)
     return loss_keeper, acc_keeper, lr_keeper
@@ -209,10 +212,9 @@ def test(model):
             class_total[label] += 1
 
     for i in range(n_class):
-        if class_total[i] == 0:
-            continue
         per_class_acc.append(float(100. * class_correct[i]/class_total[i]))
-
+    print(class_correct)
+    print(class_total)
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
     print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n\n")
@@ -227,7 +229,7 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 
 cnn.apply(weight_init)
-optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)
+optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimiser, milestones=[5, 7], last_epoch=-1)
 criterion = nn.CrossEntropyLoss()
 
@@ -236,12 +238,12 @@ loss, acc, lrs = train(cnn)
 # -------------------   -----------
 # Plot figures using matplotlib
 # ------------------------------
-fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
-plt.title("LossDuring Training")
-axes[0].plot(loss, label="Loss")
-axes[1].plot(acc, label="Accuracy")
-fig.imshow()
-plt.savefig('classifier_loss_acc.png')
+# fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(10, 5))
+# plt.title("LossDuring Training")
+# axes[0].plot(loss, label="Loss")
+# axes[1].plot(acc, label="Accuracy")
+# fig.imshow()
+# plt.savefig('classifier_loss_acc.png')
 
 # TODO: data visualisation of train loss and accuracy
 # TODO: reference existing code
