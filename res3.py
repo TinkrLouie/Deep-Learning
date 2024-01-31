@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from pytorch_symbolic import Input, SymbolicModel
 from pytorch_symbolic import useful_layers
 import random
@@ -203,8 +204,8 @@ def train(model):
             # Update optimiser
             optimiser.step()
             # Update scheduler
-            lr_keeper.append(get_lr(optimiser))
-            scheduler.step()
+            #lr_keeper.append(get_lr(optimiser))
+            #scheduler.step()
 
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
@@ -278,8 +279,21 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9, weight_decay=weight_decay)
-scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch,
-                                                steps_per_epoch=1000)
+#scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
 loss, acc, lrs = train(cnn)
+
+
+def plot_lrs(history):
+    lrs = np.concatenate([x.get('lrs', []) for x in history])
+    plt.plot(lrs)
+    plt.xlabel('Batch no.')
+    plt.ylabel('Learning rate')
+    plt.title('Learning Rate vs. Batch no.')
+    plt.imshow()
+    plt.savefig('lrs_history.png')
+
+
+#plot_lrs(lrs)
+# TODO: LeakyRELU
