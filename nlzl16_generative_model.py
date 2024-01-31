@@ -239,8 +239,8 @@ if __name__ == '__main__':
             errD_fake.backward()
 
             # TODO: GP function (Done) -> Results = FID = 87.30
-            gp = gradient_penalty(netD, data, fake.detach())
-            gp.backward()
+            #gp = gradient_penalty(netD, data, fake.detach())
+            #gp.backward()
             # Compute sum error of Discriminator
             errD = errD_fake + errD_real
             #errD = errD_fake - errD_real + gp
