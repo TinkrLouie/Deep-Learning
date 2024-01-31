@@ -78,7 +78,6 @@ print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-
 # TODO: Experiment kaiming normalisation
 def weight_init(m):
     classname = m.__class__.__name__
@@ -228,9 +227,9 @@ def train(model):
 
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
-        print(train_class_correct)
-        print(class_total)
-        print(len(per_class_acc), per_class_acc)
+        #print(train_class_correct)
+        #print(class_total)
+        #print(len(per_class_acc), per_class_acc)
         print(f"Training Accuracy : {train_acc}, stdev : {np.std(per_class_acc)}\n")
         test(cnn)
 
@@ -258,15 +257,14 @@ def test(model):
 
     for i in range(n_class):
         per_class_acc.append(float(100. * class_correct[i] / class_total[i]))
-    print(class_correct)
-    print(class_total)
+    #print(class_correct)
+    #print(class_total)
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
-    print(
-        f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
+    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
 
 
-cnn = ResNet([64, 3, 32, 32], 100).to(device)
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)
 
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
