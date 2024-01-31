@@ -28,7 +28,7 @@ n_channels = 3
 dim = 32
 n_class = 100
 n_epoch = 10
-lr = 0.01
+lr = 0.1
 
 
 
@@ -80,6 +80,15 @@ print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
+def block(in_c, out, pool=False):
+    x = nn.Conv2d(3, out, kernel_size=3, stride=1, padding=1)(in_c)
+    x = nn.BatchNorm2d(out)(x)(nn.ReLU())
+    if pool:
+        x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+
+    return x
+
+
 def CNN():
     inputs = x = Input(batch_shape=(batch_size, n_channels, dim, dim))
     x = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)(x)
@@ -88,22 +97,26 @@ def CNN():
     x = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)(x)
     x = nn.BatchNorm2d(32)(x)(nn.ReLU())
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(32, 48, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(48)(x)(nn.ReLU())
+
+    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(48, 64, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
+    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(64)(x)(nn.ReLU())
+
+    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
     x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+
+
+
     x = nn.Flatten()(x)
     x = nn.Dropout(0.1)(x)
     for _ in range(2):
         x = nn.Linear(64, 64)(x)(nn.ReLU())
         x = nn.Dropout(0.1)(x)
-    output = nn.Linear(64, 100)(x)
-    output = F.log_softmax(output, dim=1)
+    output = nn.Linear(64, 100)(x)(nn.LogSoftmax(), custom_name='classifier')
 
     return SymbolicModel(inputs, output)
 
@@ -128,6 +141,7 @@ def get_lr(optimiser):
         return param_group['lr']
 
 
+# Reference: https://github.com/NvsYashwanth/CIFAR-10-Image-Classification/tree/master
 def train(model):
     lr_keeper = []
     loss_keeper = []
@@ -156,9 +170,7 @@ def train(model):
             # nn.utils.clip_grad_value_(model.parameters(), 0.1)
             # Update optimiser
             optimiser.step()
-            # Update scheduler
-            #lr_keeper.append(get_lr(optimiser))
-            #scheduler.step()
+
 
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
@@ -182,13 +194,18 @@ def train(model):
         for i in range(n_class):
             per_class_acc.append(train_class_correct[i] / class_total[i])
 
+        # Update scheduler
+        lr_keeper.append(get_lr(optimiser))
+        scheduler.step()
+
         print(f"Epoch : {epoch + 1}")
         print(f"Training Loss : {train_loss}")
         print(train_class_correct)
         print(class_total)
         print(len(per_class_acc), per_class_acc)
-        print(f"Training Accuracy : {train_acc}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n")
+        print(f"Training Accuracy : {train_acc}, stdev : {np.std(per_class_acc)}\n")
         test(cnn)
+
     return loss_keeper, acc_keeper, lr_keeper
 
 
@@ -217,7 +234,7 @@ def test(model):
     print(class_total)
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, mean : {np.average(per_class_acc)}, stdev : {np.std(per_class_acc)}\n\n")
+    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
 
 
 cnn = CNN().to(device)
