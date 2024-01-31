@@ -257,7 +257,7 @@ plt.fill_between([x[0] for x in plot_data], [x[3]-x[4] for x in plot_data], [x[3
 plt.xlabel('Steps')
 plt.ylabel('Accuracy')
 plt.legend(loc="upper left")
-plt.savefig(f'training_result_{step}.png')
+plt.savefig('classifier_training_result.png')
 
 
 def plot_lrs(history):
