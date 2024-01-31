@@ -163,6 +163,7 @@ def ResNet(
     # BUILDING THE CLASSIFIER
     flow = flow(nn.BatchNorm2d(flow.channels))(activation)
     outs = classifier(flow, n_classes, pooling=final_pooling)
+    outs = nn.LogSoftmax()(outs)
     model = SymbolicModel(inputs=inputs, outputs=outs)
     return model
 
