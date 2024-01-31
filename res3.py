@@ -120,7 +120,7 @@ def ResNet(
     strides=(1, 2, 2),
     group_sizes=(2, 2, 2),
     channels=(16, 32, 40),
-    activation=nn.LeakyReLU(0.2),
+    activation=nn.LeakyReLU(0.1),
     final_pooling="avgpool",
     dropout=0,
     bn_ends_block=False
@@ -296,4 +296,5 @@ def plot_lrs(history):
 
 
 #plot_lrs(lrs)
+
 # TODO: LeakyRELU
