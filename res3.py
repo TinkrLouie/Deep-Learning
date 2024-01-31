@@ -1,7 +1,8 @@
+import shutil
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-from pytorch_symbolic import Input, SymbolicModel, graph_algorithms
+from pytorch_symbolic import Input, SymbolicModel
 from pytorch_symbolic import useful_layers
 import random
 import torch.nn as nn
@@ -15,6 +16,7 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch.cuda.is_available() else "CPU"))
+my_path = os.path.abspath(__file__)
 
 # Setting reproducibility
 SEED = 0
@@ -22,6 +24,7 @@ random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
+n_steps = 10000
 batch_size = 64
 n_channels = 3
 dim = 32
@@ -173,105 +176,19 @@ def get_lr(optimiser):
         return param_group['lr']
 
 
-# Reference: https://github.com/NvsYashwanth/CIFAR-10-Image-Classification/tree/master
-def train(model):
-    lr_keeper = []
-    loss_keeper = []
-    acc_keeper = []
-
-    print('Training...\n')
-
-    for epoch in range(n_epoch):
-        train_loss = 0.0
-        train_class_correct = list(0. for _ in range(n_class))
-        class_total = list(0. for _ in range(n_class))
-        per_class_acc = []
-        model.train()
-        for _ in range(1000):
-            # Get input from batch loader
-            images, labels = next(train_iterator)
-            images, labels = images.to(device), labels.to(device)
-            optimiser.zero_grad()
-            # Forward pass
-            output = model(images)
-            # Loss
-            loss = criterion(output, labels)
-            # Gradients
-            loss.backward()
-
-            # TODO: Explore grad clipping
-            # Grad clipping
-            nn.utils.clip_grad_value_(model.parameters(), 1)  # Alternative: 0.1
-            # Update optimiser
-            optimiser.step()
-            # Update scheduler
-            #lr_keeper.append(get_lr(optimiser))
-            #scheduler.step()
-
-            train_loss += loss.item()
-            _, pred = torch.max(output, 1)
-            train_correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
-            for idx, label in enumerate(labels):
-                train_class_correct[label] += train_correct[idx].item()
-                class_total[label] += 1
-
-        # Calculating loss over entire batch size for every epoch
-        train_loss = train_loss / len(train_loader)
-
-        # Calculating loss over entire batch size for every epoch
-        train_acc = float(100. * np.sum(train_class_correct) / np.sum(class_total))
-
-        # saving loss values
-        loss_keeper.append(train_loss)
-
-        # saving acc values
-        acc_keeper.append(train_acc)
-
-        for i in range(n_class):
-            per_class_acc.append(train_class_correct[i] / class_total[i])
-
-        # TODO: Explore scheduler
-
-        print(f"Epoch : {epoch + 1}")
-        print(f"Training Loss : {train_loss}")
-        #print(train_class_correct)
-        #print(class_total)
-        #print(len(per_class_acc), per_class_acc)
-        print(f"Training Accuracy : {train_acc}") #, stdev : {np.std(per_class_acc)}\n")
-        test(cnn)
-
-    return loss_keeper, acc_keeper, lr_keeper
+# create/clean the directories
+def setup_directory(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)  # remove any existing (old) data
+    os.makedirs(directory)
 
 
-def test(model):
-    test_loss = 0
-    class_correct = list(0. for _ in range(n_class))
-    class_total = list(0. for _ in range(n_class))
-    per_class_acc = []
-    model.eval()
-    for images, labels in test_loader:
+# Set up dir for graphs
+training_res_dir = 'training_res_images'
+setup_directory(training_res_dir)
 
-        images, labels = images.to(device), labels.to(device)
-        output = model(images)
-        loss = criterion(output, labels)
-        test_loss += loss.item()
-        _, pred = torch.max(output, 1)
-        correct = np.squeeze(pred.eq(labels.data.view_as(pred)))
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, final_pooling='catpool').to(device)
 
-        for idx, label in enumerate(labels):
-            class_correct[label] += correct[idx].item()
-            class_total[label] += 1
-
-    for i in range(n_class):
-        per_class_acc.append(float(100. * class_correct[i] / class_total[i]))
-    #print(class_correct)
-    #print(class_total)
-    test_loss = test_loss / len(test_loader)
-    print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}")  #, stdev : {np.std(per_class_acc)}\n\n")
-
-
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)
 
 # print the number of parameters - this should be included in your report
 print(f'> Number of parameters {len(torch.nn.utils.parameters_to_vector(cnn.parameters()))}')
@@ -283,7 +200,64 @@ optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
 #scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
-loss, acc, lrs = train(cnn)
+plot_data = []
+step = 0
+while step < n_steps:
+
+    # arrays for metrics
+    train_loss_arr = np.zeros(0)
+    train_acc_arr = np.zeros(0)
+    test_acc_arr = np.zeros(0)
+
+    # iterate through some of the train dateset
+    for _ in range(1000):
+        # Get input from batch loader
+        images, labels = next(train_iterator)
+        images, labels = images.to(device), labels.to(device)
+        optimiser.zero_grad()
+        # Forward pass
+        output = cnn(images)
+        # Loss
+        loss = criterion(output, labels)
+        # Gradients
+        loss.backward()
+        # TODO: Explore grad clipping
+        # Grad clipping
+        nn.utils.clip_grad_value_(cnn.parameters(), 1)  # Alternative: 0.1
+        # Update optimiser
+        optimiser.step()
+        step += 1
+        # Update scheduler
+        # lr_keeper.append(get_lr(optimiser))
+        # scheduler.step()
+        _, pred = torch.max(output, 1)
+
+        train_loss_arr = np.append(train_loss_arr, loss.cpu().data)
+        train_acc_arr = np.append(train_acc_arr, pred.data.eq(labels.view_as(pred)).float().mean().item())
+
+    # iterate over the entire test dataset
+    for images, labels in test_loader:
+        images, labels = images.to(device), labels.to(device)
+        output = cnn(images)
+        loss = criterion(output, labels)
+        _, pred = torch.max(output, 1)
+        test_acc_arr = np.append(test_acc_arr, pred.data.eq(labels.view_as(pred)).float().mean().item())
+
+    # print your loss and accuracy data - include this in the final report
+    print('steps: {:.2f}, train loss: {:.3f}, train acc: {:.3f}±{:.3f}, test acc: {:.3f}±{:.3f}'.format(
+        step, train_loss_arr.mean(), train_acc_arr.mean(), train_acc_arr.std(), test_acc_arr.mean(), test_acc_arr.std()))
+
+    # plot your accuracy graph - add a graph like this in your final report
+    plot_data.append([step, np.array(train_acc_arr).mean(), np.array(train_acc_arr).std(), np.array(test_acc_arr).mean(), np.array(test_acc_arr).std()])
+
+plt.plot([x[0] for x in plot_data], [x[1] for x in plot_data], '-', color='tab:grey', label="Train accuracy")
+plt.fill_between([x[0] for x in plot_data], [x[1]-x[2] for x in plot_data], [x[1]+x[2] for x in plot_data], alpha=0.2, color='tab:grey')
+plt.plot([x[0] for x in plot_data], [x[3] for x in plot_data], '-', color='tab:purple', label="Test accuracy")
+plt.fill_between([x[0] for x in plot_data], [x[3]-x[4] for x in plot_data], [x[3]+x[4] for x in plot_data], alpha=0.2, color='tab:purple')
+plt.xlabel('Steps')
+plt.ylabel('Accuracy')
+plt.legend(loc="upper left")
+plt.savefig(f'training_result_{step}.png')
 
 
 def plot_lrs(history):
@@ -296,18 +270,3 @@ def plot_lrs(history):
     plt.savefig('lrs_history.png')
 
 
-#plot_lrs(lrs)
-
-'''
-plot_data = [[n_epoch, np.array(train_acc_arr).mean(), np.array(train_acc_arr).std(), np.array(test_acc_arr).mean(),
-              np.array(test_acc_arr).std()]]
-plt.plot([x[0] for x in plot_data], [x[1] for x in plot_data], '-', color='tab:grey', label="Train accuracy")
-plt.fill_between([x[0] for x in plot_data], [x[1]-x[2] for x in plot_data], [x[1]+x[2] for x in plot_data], alpha=0.2, color='tab:grey')
-plt.plot([x[0] for x in plot_data], [x[3] for x in plot_data], '-', color='tab:purple', label="Test accuracy")
-plt.fill_between([x[0] for x in plot_data], [x[3]-x[4] for x in plot_data], [x[3]+x[4] for x in plot_data], alpha=0.2, color='tab:purple')
-plt.xlabel('Steps')
-plt.ylabel('Accuracy')
-plt.legend(loc="upper left")
-plt.show()
-'''
-# TODO: LeakyRELU
