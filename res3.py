@@ -47,15 +47,15 @@ transform_train = Compose([
     RandomHorizontalFlip(),
     RandomRotation(10),
     ToTensor(),
-    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     # (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+    #(0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 ])
 
 # Normalize the test set same as training set without augmentation
 transform_test = Compose([
     ToTensor(),
-    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    # (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
+    Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
 ds = CIFAR100
