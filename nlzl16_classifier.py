@@ -303,7 +303,7 @@ if len(torch.nn.utils.parameters_to_vector(cnn.parameters())) > 100000:
     print("> Warning: you have gone over your parameter budget and will have a grade penalty!")
 cnn.apply(weight_init)
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)  # Set lr to START_LR and functions below to find optimal LR
-#scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=n_epoch, steps_per_epoch=1000)
+scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
 #END_LR = 10
@@ -335,6 +335,7 @@ def plot_lr_finder(lrs, losses, skip_start=5, skip_end=5):
 # Enable to plot graph to find LR
 #plot_lr_finder(lrs, losses)
 
+lr_keeper = []
 plot_data = []
 step = 0
 while step < n_steps:
@@ -363,8 +364,8 @@ while step < n_steps:
         optimiser.step()
         step += 1
         # Update scheduler
-        # lr_keeper.append(get_lr(optimiser))
-        # scheduler.step()
+        lr_keeper.append(get_lr(optimiser))
+        scheduler.step()
         _, pred = torch.max(output, 1)
 
         train_loss_arr = np.append(train_loss_arr, loss.cpu().data)
@@ -396,8 +397,7 @@ plt.savefig('classifier_training_result.png')
 
 
 def plot_lrs(history):
-    lrs = np.concatenate([x.get('lrs', []) for x in history])
-    plt.plot(lrs)
+    plt.plot(history)
     plt.xlabel('Batch no.')
     plt.ylabel('Learning rate')
     plt.title('Learning Rate vs. Batch no.')
@@ -405,3 +405,4 @@ def plot_lrs(history):
     plt.savefig('lrs_history.png')
 
 
+plot_lrs(lr_keeper)
