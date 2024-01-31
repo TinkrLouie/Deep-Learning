@@ -30,8 +30,6 @@ n_class = 100
 n_epoch = 10
 lr = 0.1
 
-
-
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
                'chimpanzee', 'clock', 'cloud', 'cockroach', 'couch', 'crab', 'crocodile', 'cup', 'dinosaur', 'dolphin',
@@ -75,60 +73,102 @@ def cycle(iterable):
 
 train_iterator = iter(cycle(train_loader))
 
-
 print(f'Size of training dataset: {len(train_loader.dataset)}')
 print(f'Size of testing dataset: {len(test_loader.dataset)}')
 
 
-def block(in_c, out, pool=False):
-    x = nn.Conv2d(3, out, kernel_size=3, stride=1, padding=1)(in_c)
-    x = nn.BatchNorm2d(out)(x)(nn.ReLU())
+# def block(in_c, out, pool=False):
+#    x = nn.Conv2d(3, out, kernel_size=3, stride=1, padding=1)(in_c)
+#    x = nn.BatchNorm2d(out)(x)(nn.ReLU())
+#    if pool:
+#        x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#
+#    return x
+#
+#
+# def CNN():
+#    inputs = x = Input(batch_shape=(batch_size, n_channels, dim, dim))
+#    x = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)(x)
+#    x = nn.BatchNorm2d(16)(x)(nn.ReLU())
+#    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#    x = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)(x)
+#    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
+#    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#
+#    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+#    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
+#    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+#    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
+#    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#
+#    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
+#    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
+#    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+#
+#
+#
+#    x = nn.Flatten()(x)
+#    x = nn.Dropout(0.1)(x)
+#    for _ in range(2):
+#        x = nn.Linear(64, 64)(x)(nn.ReLU())
+#        x = nn.Dropout(0.1)(x)
+#    output = nn.Linear(64, 100)(x)(nn.LogSoftmax(), custom_name='classifier')
+#
+#    return SymbolicModel(inputs, output)
+
+def conv_block(in_channels, out_channels, pool=False):
+    layers = [nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+              nn.BatchNorm2d(out_channels),
+              nn.ReLU(True)]
     if pool:
-        x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-
-    return x
-
-
-def CNN():
-    inputs = x = Input(batch_shape=(batch_size, n_channels, dim, dim))
-    x = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(16)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-
-    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
-
-    x = nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1)(x)
-    x = nn.BatchNorm2d(32)(x)(nn.ReLU())
-    x = nn.MaxPool2d(kernel_size=2, stride=2)(x)
+        layers.append(nn.MaxPool2d(2))
+    return nn.Sequential(*layers)
 
 
+class CNN(nn.Module):
+    def __init__(self, in_channels=3, num_classes=100):
+        super().__init__()
 
-    x = nn.Flatten()(x)
-    x = nn.Dropout(0.1)(x)
-    for _ in range(2):
-        x = nn.Linear(64, 64)(x)(nn.ReLU())
-        x = nn.Dropout(0.1)(x)
-    output = nn.Linear(64, 100)(x)(nn.LogSoftmax(), custom_name='classifier')
+        self.conv1 = conv_block(in_channels, 16)
+        self.conv2 = conv_block(16, 32, pool=True)
+        self.res1 = nn.Sequential(conv_block(32, 32), conv_block(32, 32))
 
-    return SymbolicModel(inputs, output)
+        self.conv3 = conv_block(32, 32, pool=True)
+        self.conv4 = conv_block(32, 32, pool=True)
+        self.res2 = nn.Sequential(conv_block(32, 32), conv_block(32, 32))
+
+        self.conv5 = conv_block(32, 32, pool=True)
+        self.conv6 = conv_block(32, 32, pool=True)
+        self.res3 = nn.Sequential(conv_block(32, 32), conv_block(32, 32))
+
+        self.classifier = nn.Sequential(nn.MaxPool2d(4),
+                                        nn.Flatten(),
+                                        nn.Linear(32, num_classes))
+
+    def forward(self, xb):
+        out = self.conv1(xb)
+        out = self.conv2(out)
+        out = self.res1(out) + out
+        out = self.conv3(out)
+        out = self.conv4(out)
+        out = self.res2(out) + out
+        out = self.conv5(out)
+        out = self.conv6(out)
+        out = self.res3(out) + out
+        out = self.classifier(out)
+        return out
 
 
+# TODO: Experiment kaiming normalisation
 def weight_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
-        #n = m.in_features
-        #y = (1.0 / np.sqrt(n))
-        #m.weight.data.normal_(0, y)
-        #m.bias.data.fill_(0)
-        init.kaiming_normal_(m.weight)
+        n = m.in_features
+        y = (1.0 / np.sqrt(n))
+        m.weight.data.normal_(0, y)
+        m.bias.data.fill_(0)
+        #init.kaiming_normal_(m.weight)
     elif classname.find("Conv") != -1:
         nn.init.normal_(m.weight.data, 0.0, 0.02)
     elif classname.find("BatchNorm") != -1:
@@ -166,11 +206,12 @@ def train(model):
             loss = criterion(output, labels)
             # Gradients
             loss.backward()
+
+            # TODO: Explore grad clipping
             # Grad clipping
             # nn.utils.clip_grad_value_(model.parameters(), 0.1)
             # Update optimiser
             optimiser.step()
-
 
             train_loss += loss.item()
             _, pred = torch.max(output, 1)
@@ -194,6 +235,7 @@ def train(model):
         for i in range(n_class):
             per_class_acc.append(train_class_correct[i] / class_total[i])
 
+        # TODO: Explore scheduler
         # Update scheduler
         lr_keeper.append(get_lr(optimiser))
         scheduler.step()
@@ -229,12 +271,13 @@ def test(model):
             class_total[label] += 1
 
     for i in range(n_class):
-        per_class_acc.append(float(100. * class_correct[i]/class_total[i]))
+        per_class_acc.append(float(100. * class_correct[i] / class_total[i]))
     print(class_correct)
     print(class_total)
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
+    print(
+        f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
 
 
 cnn = CNN().to(device)
