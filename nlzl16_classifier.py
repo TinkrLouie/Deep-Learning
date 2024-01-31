@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, RandomHorizontalFlip, RandomRotation, Normalize, RandomCrop
 import os
 from torchvision.datasets import CIFAR100
-from torch.optim import SGD, Adam
+from torch.optim import SGD
 
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -29,8 +29,6 @@ n_channels = 3
 dim = 32
 n_class = 100
 lr = 0.01
-weight_decay = 1e-4
-beta1 = 0.5
 
 class_names = ['apple', 'aquarium_fish', 'baby', 'bear', 'beaver', 'bed', 'bee', 'beetle', 'bicycle', 'bottle', 'bowl',
                'boy', 'bridge', 'bus', 'butterfly', 'camel', 'can', 'castle', 'caterpillar', 'cattle', 'chair',
@@ -128,7 +126,8 @@ def ResNet(
     channels=(16, 32, 40),  # Block expansion for deeper network
     activation=nn.ReLU(),
     final_pooling="avgpool",
-    dropout=0  # p for dropout layers
+    dropout=0,  # p for dropout layers
+    bn_ends_block=False
 ):
 
     def simple_block(flow, channels, stride):
@@ -142,6 +141,8 @@ def ResNet(
             flow = flow(nn.Dropout(p=dropout))
         flow = flow(nn.Conv2d(flow.channels, channels, 3, 1, 1))
 
+        if bn_ends_block:
+            flow = flow(nn.BatchNorm2d(flow.channels))(activation)
         return flow
 
     block = simple_block
@@ -185,7 +186,7 @@ def setup_directory(directory):
 
 
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class, bn_ends_block=True).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
@@ -200,7 +201,7 @@ cnn.apply(weight_init)
 # TODO: test between Adam and SGD, test weight decay (Done) => Adam < SGD, weight decay < no weight decay
 # Optimiser
 optimiser = SGD(cnn.parameters(), lr=lr, momentum=0.9)
-scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
+#scheduler = torch.optim.lr_scheduler.OneCycleLR(optimiser, lr, epochs=10, steps_per_epoch=1000)
 criterion = nn.CrossEntropyLoss()
 
 lr_keeper = []
