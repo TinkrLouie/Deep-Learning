@@ -29,7 +29,6 @@ batch_size = 64
 n_channels = 3
 dim = 32
 n_class = 100
-n_epoch = 10
 lr = 0.01
 weight_decay = 1e-4
 
@@ -50,7 +49,7 @@ transform_train = Compose([
     RandomHorizontalFlip(),
     RandomRotation(10),
     ToTensor(),
-    Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     # (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
     #(0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
 ])
@@ -58,7 +57,7 @@ transform_train = Compose([
 # Normalize the test set same as training set without augmentation
 transform_test = Compose([
     ToTensor(),
-    Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+    Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
 ])
 
 ds = CIFAR100
@@ -191,7 +190,7 @@ training_res_dir = 'training_res_images'
 setup_directory(training_res_dir)
 
 # TODO: Dropout layers, p>0 seems to decrease performance
-cnn = ResNet([batch_size, n_channels, dim, dim], n_class, final_pooling='maxpool').to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
+cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)  # Add final_pooling='catpool' or 'maxpool' to change pooling mode
 
 
 # print the number of parameters - this should be included in your report
