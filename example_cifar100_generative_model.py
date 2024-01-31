@@ -112,18 +112,11 @@ while steps < 50000:
 
 
 
-"""**Latent interpolations**"""
-
-"""**FID scores**
-
-Evaluate the FID from 10k of your model samples (do not sample more than this) and compare it against the 10k test images. Calculating FID is somewhat involved, so we use a library for it. It can take a few minutes to evaluate. Lower FID scores are better.
-"""
-
 
 
 # define directories
 real_images_dir = 'real_images'
-generated_images_dir = 'generated_images'
+generated_images_dir = 'example_generated_images'
 num_samples = 10000  # do not change
 
 
