@@ -201,7 +201,7 @@ def train(model):
 
             # TODO: Explore grad clipping
             # Grad clipping
-            nn.utils.clip_grad_value_(model.parameters(), 0.1)
+            nn.utils.clip_grad_value_(model.parameters(), 1)  # Alternative: 0.1
             # Update optimiser
             optimiser.step()
             # Update scheduler
