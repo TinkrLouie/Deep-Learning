@@ -232,7 +232,7 @@ def train(model):
         #print(train_class_correct)
         #print(class_total)
         #print(len(per_class_acc), per_class_acc)
-        print(f"Training Accuracy : {train_acc}, stdev : {np.std(per_class_acc)}\n")
+        print(f"Training Accuracy : {train_acc}") #, stdev : {np.std(per_class_acc)}\n")
         test(cnn)
 
     return loss_keeper, acc_keeper, lr_keeper
@@ -263,7 +263,7 @@ def test(model):
     #print(class_total)
     test_loss = test_loss / len(test_loader)
     print(f"Test Loss: {test_loss}")
-    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}, stdev : {np.std(per_class_acc)}\n\n")
+    print(f"Test Accuracy : {float(100. * np.sum(class_correct) / np.sum(class_total))}")  #, stdev : {np.std(per_class_acc)}\n\n")
 
 
 cnn = ResNet([batch_size, n_channels, dim, dim], n_class).to(device)
