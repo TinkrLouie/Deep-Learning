@@ -122,7 +122,7 @@ def conv_block(in_channels, out_channels, pool=False):
               nn.BatchNorm2d(out_channels),
               nn.ReLU(True)]
     if pool:
-        layers.append(nn.MaxPool2d(2))
+        layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
     return nn.Sequential(*layers)
 
 

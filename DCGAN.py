@@ -29,7 +29,7 @@ torch.manual_seed(SEED)
 # TODO: Tune hyperparameters
 # TODO: 76.47 FID nz 128, lr 0.0005 for leaky 0.1
 # TODO: gp lowers performance
-# TODO: 75.66 FID 0.0002 lr , 0.25 lrealpha
+# TODO: 72.56 FID 0.0002 lr , 0.25 lrealpha (Achieved for DCGAN)
 
 # hyperparameters
 params = {
@@ -55,6 +55,7 @@ print(f"Using device: {device}\t" + (f"{torch.cuda.get_device_name(0)}" if torch
 # TODO: Add Self-attention Layers (Done) -> Results = FID = 151 => Removed
 
 
+# Symbolic API Generator
 def Generator():
     inputs = x = Input(batch_shape=(params['batch_size'], params['nz'], 1, 1))
     x = nn.ConvTranspose2d(params['nz'], params['ngf'] * 2, 3, 1, 0, bias=False)(x)
@@ -66,6 +67,7 @@ def Generator():
     return SymbolicModel(inputs, output)
 
 
+# Symbolic API Discriminator
 def Discriminator():
     inputs = x = Input(batch_shape=(params['batch_size'], params['nc'], params['dim'], params['dim']))
     x = spectral_norm(nn.Conv2d(params['nc'], params['ndf'], 2, 2, 1, bias=False))(x)
